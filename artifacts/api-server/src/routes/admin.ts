@@ -11,7 +11,12 @@ const router: IRouter = Router();
 // Compares the Clerk user's primary email case-insensitively against the
 // admins table. Called on every page load by useIsAdmin() with a 5-min cache.
 router.get("/me/role", async (req, res): Promise<void> => {
+  // Never cache this response — stale isAdmin:false can lock admins out.
+  res.setHeader("Cache-Control", "no-store");
+
   const auth = getAuth(req);
+  console.log("[/me/role] auth.userId:", auth?.userId ?? "null", "| sessionId:", auth?.sessionId ?? "null");
+
   if (!auth?.userId) {
     res.json({ isAdmin: false });
     return;
@@ -22,6 +27,8 @@ router.get("/me/role", async (req, res): Promise<void> => {
     const raw =
       user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
         ?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
+
+    console.log("[/me/role] Clerk email resolved:", raw ?? "null");
 
     if (!raw) {
       res.json({ isAdmin: false });
@@ -36,6 +43,7 @@ router.get("/me/role", async (req, res): Promise<void> => {
       .from(adminsTable)
       .where(sql`lower(trim(${adminsTable.email})) = ${email}`);
 
+    console.log("[/me/role] isAdmin:", !!admin, "| email:", email);
     res.json({ isAdmin: !!admin });
   } catch (err) {
     // Return 500 so useIsAdmin() throws and React Query retries,
