@@ -1,4 +1,4 @@
-import { HeartPulse, Brain, Dna, Activity } from 'lucide-react';
+import { HeartPulse, Brain, Dna, Activity, Microscope, Droplets } from 'lucide-react';
 import React from 'react';
 
 export const ICON_MAP: Record<string, React.ElementType> = {
@@ -6,4 +6,6 @@ export const ICON_MAP: Record<string, React.ElementType> = {
   brain: Brain,
   dna: Dna,
   lungs: Activity,
+  microscope: Microscope,
+  droplets: Droplets,
 };
