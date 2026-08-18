@@ -1,0 +1,1 @@
+- [Database connection](database-connection.md) — use the secure external Neon override instead of replacing Replit’s runtime-managed database key.
