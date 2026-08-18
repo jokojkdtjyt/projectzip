@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, modulesTable, lessonsTable, adminsTable } from "@workspace/db";
+import { db, modulesTable, lessonsTable, adminsTable, purchasedTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { getAuth, clerkClient } from "@clerk/express";
 import { requireAdmin } from "../middlewares/requireAdmin";
@@ -56,7 +56,6 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
     .select({
       totalModules: sql<number>`count(*)::int`,
       liveModules: sql<number>`count(*) filter (where ${modulesTable.published} = true)::int`,
-      totalStudents: sql<number>`coalesce(sum(${modulesTable.students}), 0)::int`,
     })
     .from(modulesTable);
 
@@ -67,12 +66,18 @@ router.get("/admin/stats", requireAdmin, async (_req, res): Promise<void> => {
     })
     .from(lessonsTable);
 
+  const [studentStats] = await db
+    .select({
+      totalStudents: sql<number>`count(distinct ${purchasedTable.userId})::int`,
+    })
+    .from(purchasedTable);
+
   res.json({
     totalModules: Number(moduleStats?.totalModules ?? 0),
     liveModules: Number(moduleStats?.liveModules ?? 0),
     totalLessons: Number(lessonStats?.totalLessons ?? 0),
     liveLessons: Number(lessonStats?.liveLessons ?? 0),
-    totalStudents: Number(moduleStats?.totalStudents ?? 0),
+    totalStudents: Number(studentStats?.totalStudents ?? 0),
   });
 });
 

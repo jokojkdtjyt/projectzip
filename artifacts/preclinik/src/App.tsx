@@ -184,23 +184,28 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   const { data: roleData, isLoading: roleLoading } = useIsAdmin();
   const [, setLocation] = useLocation();
 
+  useEffect(() => {
+    if (!authLoaded) return;
+    if (!isSignedIn) {
+      setLocation("/sign-in");
+      return;
+    }
+    if (!roleLoading && !roleData?.isAdmin) {
+      setLocation("/");
+    }
+  }, [authLoaded, isSignedIn, roleLoading, roleData?.isAdmin, setLocation]);
+
   // Wait for Clerk to resolve the session
   if (!authLoaded) return null;
 
   // Not signed in at all — redirect to sign-in
-  if (!isSignedIn) {
-    setLocation("/sign-in");
-    return null;
-  }
+  if (!isSignedIn) return null;
 
   // Waiting for the admin check
   if (roleLoading) return null;
 
   // Signed in but not an admin — bounce to dashboard
-  if (!roleData?.isAdmin) {
-    setLocation("/");
-    return null;
-  }
+  if (!roleData?.isAdmin) return null;
 
   return <>{children}</>;
 }

@@ -1,11 +1,15 @@
 import React from 'react';
 import { useGetAdminStats } from '@workspace/api-client-react';
-import { Library, BookOpen, Users, Activity, PlayCircle } from 'lucide-react';
+import { Library, BookOpen, Users, Activity, PlayCircle, Plus } from 'lucide-react';
 import { useLocation } from 'wouter';
 
 export default function AdminOverview() {
-  const { data: stats } = useGetAdminStats();
+  const { data: stats, isLoading, isError } = useGetAdminStats({
+    query: { retry: 2 },
+  });
   const [, navigate] = useLocation();
+  const statValue = (value: number | undefined) =>
+    isLoading ? '—' : isError ? '!' : String(value ?? 0);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -21,8 +25,8 @@ export default function AdminOverview() {
           </div>
           <div>
             <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground font-mono mb-1">Total Modules</div>
-            <div className="text-3xl font-serif font-bold text-foreground">{stats?.totalModules || 0}</div>
-            <div className="text-xs text-green-600 font-mono mt-1 font-bold">{stats?.liveModules || 0} Live</div>
+            <div className="text-3xl font-serif font-bold text-foreground">{statValue(stats?.totalModules)}</div>
+            <div className="text-xs text-green-600 font-mono mt-1 font-bold">{isError ? 'Unavailable' : `${stats?.liveModules ?? 0} Live`}</div>
           </div>
         </div>
 
@@ -32,8 +36,8 @@ export default function AdminOverview() {
           </div>
           <div>
             <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground font-mono mb-1">Total Lessons</div>
-            <div className="text-3xl font-serif font-bold text-foreground">{stats?.totalLessons || 0}</div>
-            <div className="text-xs text-green-600 font-mono mt-1 font-bold">{stats?.liveLessons || 0} Live</div>
+            <div className="text-3xl font-serif font-bold text-foreground">{statValue(stats?.totalLessons)}</div>
+            <div className="text-xs text-green-600 font-mono mt-1 font-bold">{isError ? 'Unavailable' : `${stats?.liveLessons ?? 0} Live`}</div>
           </div>
         </div>
 
@@ -43,7 +47,7 @@ export default function AdminOverview() {
           </div>
           <div>
             <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground font-mono mb-1">Total Students</div>
-            <div className="text-3xl font-serif font-bold text-foreground">{stats?.totalStudents || 0}</div>
+            <div className="text-3xl font-serif font-bold text-foreground">{statValue(stats?.totalStudents)}</div>
           </div>
         </div>
 
@@ -53,7 +57,12 @@ export default function AdminOverview() {
           </div>
           <div>
             <div className="text-xs font-bold uppercase tracking-widest text-muted-foreground font-mono mb-1">System Status</div>
-            <div className="text-xl font-serif font-bold text-foreground mt-2">Operational</div>
+            <div className={`text-xl font-serif font-bold mt-2 ${isError ? 'text-amber-700' : 'text-foreground'}`}>
+              {isError ? 'Needs attention' : 'Operational'}
+            </div>
+            {isError && (
+              <div className="text-[10px] text-amber-600 font-mono mt-1">Stats could not be loaded</div>
+            )}
           </div>
         </div>
       </div>
@@ -63,6 +72,15 @@ export default function AdminOverview() {
           <h2 className="font-serif font-bold text-lg">Quick Actions</h2>
         </div>
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button onClick={() => navigate('/admin/modules')} className="flex items-center gap-3 p-4 rounded-xl border border-border hover:bg-secondary hover:border-primary/30 transition-all text-left">
+            <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center shrink-0">
+              <Plus className="w-5 h-5"/>
+            </div>
+            <div>
+              <div className="font-bold text-foreground text-sm">Create Module</div>
+              <div className="text-xs text-muted-foreground font-mono mt-1">Start a new course</div>
+            </div>
+          </button>
           <button onClick={() => navigate('/admin/lessons')} className="flex items-center gap-3 p-4 rounded-xl border border-border hover:bg-secondary hover:border-primary/30 transition-all text-left">
             <div className="w-10 h-10 rounded-full bg-[#b9852e] text-white flex items-center justify-center shrink-0">
               <PlayCircle className="w-5 h-5"/>
