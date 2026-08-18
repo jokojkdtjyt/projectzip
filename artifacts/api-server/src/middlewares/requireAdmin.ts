@@ -21,10 +21,14 @@ export async function requireAdmin(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
+  const authHeader = req.headers.authorization;
   const auth = getAuth(req);
   const userId = auth?.userId;
 
   if (!userId) {
+    console.warn(
+      `[requireAdmin] 401 — no userId | method=${req.method} path=${req.path} | auth-header=${authHeader ? "present" : "MISSING"}`,
+    );
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
@@ -36,6 +40,7 @@ export async function requireAdmin(
         ?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
 
     if (!raw) {
+      console.warn(`[requireAdmin] 403 — no email on Clerk user ${userId}`);
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -49,6 +54,7 @@ export async function requireAdmin(
       .where(sql`lower(trim(${adminsTable.email})) = ${email}`);
 
     if (!admin) {
+      console.warn(`[requireAdmin] 403 — ${email} not in admins table`);
       res.status(403).json({ error: "Forbidden" });
       return;
     }

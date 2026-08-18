@@ -15,7 +15,7 @@
  */
 
 import { Router, type IRouter } from "express";
-import multer from "multer";
+import https from "node:https";
 import crypto from "node:crypto";
 import { db, lessonsTable, purchasedTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
@@ -34,30 +34,29 @@ function getBunnyKey(): string {
 
 const router: IRouter = Router();
 
-// multer: keep file in memory so we can stream it straight to Bunny's PUT.
-// For very large files (>500 MB) swap to disk storage and pipe a ReadStream.
-const upload = multer({ storage: multer.memoryStorage() });
-
 // ── POST /admin/lessons/:lessonId/upload-video ────────────────────────────────
+//
+// Accepts a raw binary body (Content-Type: application/octet-stream) instead
+// of multipart/form-data. This lets us pipe the incoming stream directly to
+// Bunny — zero RAM buffering, no size limit, no proxy timeout risk from
+// double-hop latency.
+//
+// The browser XHR in uploadManager.ts sends `file` (a File object) as the
+// body directly, which is semantically equivalent to a raw binary body.
 router.post(
   "/admin/lessons/:lessonId/upload-video",
   requireAdmin,
-  upload.single("video"),
   async (req, res): Promise<void> => {
     const lessonId = req.params.lessonId as string;
 
-    if (!req.file) {
-      res.status(400).json({ error: "No video file provided (field name: video)" });
-      return;
-    }
-
-    // 1. Verify lesson exists
+    // 1. Verify lesson exists before starting the upload
     const [lesson] = await db
       .select()
       .from(lessonsTable)
       .where(eq(lessonsTable.id, lessonId));
 
     if (!lesson) {
+      req.resume(); // drain body so socket stays clean
       res.status(404).json({ error: "Lesson not found" });
       return;
     }
@@ -78,6 +77,7 @@ router.post(
     );
 
     if (!createRes.ok) {
+      req.resume();
       const text = await createRes.text();
       console.error("[bunny] create failed:", createRes.status, text);
       res.status(502).json({ error: `Bunny create video failed: ${text}` });
@@ -85,33 +85,48 @@ router.post(
     }
 
     const { guid: videoId } = (await createRes.json()) as { guid: string };
-    console.log(`[bunny] created video ${videoId} for lesson ${lessonId}`);
+    console.log(`[bunny] created video ${videoId} for lesson ${lessonId}, piping upload…`);
 
-    // 3. Upload the binary to Bunny
-    const uploadRes = await fetch(
-      `${BUNNY_API_BASE}/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`,
-      {
-        method: "PUT",
-        headers: {
-          AccessKey: BUNNY_API_KEY,
-          "Content-Type": "application/octet-stream",
+    // 3. Pipe the raw request body directly to Bunny — no RAM buffering.
+    //    Content-Length forwarded so Bunny knows when the stream ends.
+    const contentLength = req.headers["content-length"];
+
+    await new Promise<void>((resolve, reject) => {
+      const bunnyReq = https.request(
+        {
+          hostname: "video.bunnycdn.com",
+          path: `/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`,
+          method: "PUT",
+          headers: {
+            AccessKey: BUNNY_API_KEY,
+            "Content-Type": "application/octet-stream",
+            ...(contentLength ? { "Content-Length": contentLength } : {}),
+          },
         },
-        // Buffer is supported directly as fetch body in Node 18+
-        body: req.file.buffer,
-      },
-    );
+        (bunnyRes) => {
+          const ok =
+            bunnyRes.statusCode !== undefined &&
+            bunnyRes.statusCode >= 200 &&
+            bunnyRes.statusCode < 300;
+          bunnyRes.resume(); // consume Bunny's response body
+          if (ok) {
+            resolve();
+          } else {
+            // Best-effort delete the dangling Bunny entry
+            fetch(
+              `${BUNNY_API_BASE}/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`,
+              { method: "DELETE", headers: { AccessKey: BUNNY_API_KEY } },
+            ).catch(() => {});
+            reject(
+              new Error(`Bunny upload failed with status ${bunnyRes.statusCode}`),
+            );
+          }
+        },
+      );
 
-    if (!uploadRes.ok) {
-      const text = await uploadRes.text();
-      console.error("[bunny] upload failed:", uploadRes.status, text);
-      // Best-effort delete the dangling video entry
-      fetch(`${BUNNY_API_BASE}/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`, {
-        method: "DELETE",
-        headers: { AccessKey: BUNNY_API_KEY },
-      }).catch(() => {});
-      res.status(502).json({ error: `Bunny upload failed: ${text}` });
-      return;
-    }
+      bunnyReq.on("error", reject);
+      req.pipe(bunnyReq);
+    });
 
     console.log(`[bunny] upload complete for video ${videoId}`);
 
