@@ -87,7 +87,17 @@ export default function AdminModules() {
                         {mod.published ? 'Live' : 'Draft'}
                       </span>
                     </td>
-                    <td className="p-5 text-sm font-mono font-bold text-foreground">{mod.price} DZD</td>
+                    <td className="p-5 text-sm font-mono text-foreground">
+                       {mod.price3Month || mod.price1Year || mod.priceLifetime ? (
+                         <div className="space-y-0.5">
+                           {mod.price3Month ? <div className="text-xs"><span className="text-muted-foreground">3mo</span> {mod.price3Month.toLocaleString()} DZD</div> : null}
+                           {mod.price1Year ? <div className="text-xs"><span className="text-muted-foreground">1yr</span> {mod.price1Year.toLocaleString()} DZD</div> : null}
+                           {mod.priceLifetime ? <div className="text-xs font-bold"><span className="text-muted-foreground font-normal">∞</span> {mod.priceLifetime.toLocaleString()} DZD</div> : null}
+                         </div>
+                       ) : (
+                         <span className="font-bold">{mod.price} DZD</span>
+                       )}
+                     </td>
                     <td className="p-5 text-right space-x-2">
                       <button onClick={() => handleEdit(mod)} className="p-2 text-muted-foreground hover:bg-white hover:text-primary rounded-lg transition-colors border border-transparent hover:border-border shadow-sm">
                         <Edit2 className="w-4 h-4" />

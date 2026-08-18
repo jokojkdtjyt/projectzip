@@ -18,6 +18,9 @@ const schema = z.object({
   icon: z.string().min(1, 'Icon is required'),
   status: z.enum(['Live', 'Draft']),
   price: z.coerce.number().min(0),
+  price3Month: z.coerce.number().min(0).optional(),
+  price1Year: z.coerce.number().min(0).optional(),
+  priceLifetime: z.coerce.number().min(0).optional(),
   isFree: z.boolean().optional(),
   rating: z.coerce.number().min(0).max(5),
   students: z.coerce.number().min(0),
@@ -50,7 +53,10 @@ export function ModuleEditor({ module, onClose, onCreated }: ModuleEditorProps) 
       provider: module?.provider || 'PreClinik Faculty',
       icon: module?.icon || 'heart',
       status: module?.published ? 'Live' : 'Draft',
-      price: module?.price || 800,
+      price: module?.price || 0,
+      price3Month: module?.price3Month ?? undefined,
+      price1Year: module?.price1Year ?? undefined,
+      priceLifetime: module?.priceLifetime ?? undefined,
       isFree: module?.isFree ?? false,
       rating: module?.rating || 4.5,
       students: module?.students || 0,
@@ -75,6 +81,9 @@ export function ModuleEditor({ module, onClose, onCreated }: ModuleEditorProps) 
       icon: data.icon,
       published: data.status === 'Live',
       price: data.price,
+      price3Month: data.price3Month || null,
+      price1Year: data.price1Year || null,
+      priceLifetime: data.priceLifetime || null,
       isFree: data.isFree,
       rating: data.rating,
       students: data.students,
@@ -156,7 +165,7 @@ export function ModuleEditor({ module, onClose, onCreated }: ModuleEditorProps) 
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-6">
+            <div className="grid grid-cols-3 gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-muted-foreground font-mono uppercase tracking-widest">Provider</label>
                 <input {...form.register('provider')} className="w-full h-12 px-4 rounded-xl border border-border bg-background focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all" />
@@ -174,9 +183,42 @@ export function ModuleEditor({ module, onClose, onCreated }: ModuleEditorProps) 
                   <option value="lungs">Lungs (Respiratory)</option>
                 </select>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-muted-foreground font-mono uppercase tracking-widest">Price (DZD)</label>
-                <input type="number" {...form.register('price')} className="w-full h-12 px-4 rounded-xl border border-border bg-background focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all" />
+            </div>
+
+            {/* ── Tiered Pricing ── */}
+            <div className="p-5 rounded-2xl border border-border bg-secondary/20 space-y-4">
+              <div>
+                <div className="text-sm font-bold text-muted-foreground font-mono uppercase tracking-widest mb-1">Tiered Pricing (DZD)</div>
+                <p className="text-xs text-muted-foreground font-mono">Leave a tier blank to disable it. Students will only see enabled tiers when enrolling.</p>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-muted-foreground font-mono uppercase tracking-widest">3-Month Access</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 1500"
+                    {...form.register('price3Month')}
+                    className="w-full h-12 px-4 rounded-xl border border-border bg-background focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-muted-foreground font-mono uppercase tracking-widest">1-Year Access</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 4500"
+                    {...form.register('price1Year')}
+                    className="w-full h-12 px-4 rounded-xl border border-border bg-background focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-muted-foreground font-mono uppercase tracking-widest">Lifetime Access</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 8000"
+                    {...form.register('priceLifetime')}
+                    className="w-full h-12 px-4 rounded-xl border border-border bg-background focus:bg-white focus:ring-2 focus:ring-primary outline-none transition-all"
+                  />
+                </div>
               </div>
             </div>
 

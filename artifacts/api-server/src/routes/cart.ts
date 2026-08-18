@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { and, eq } from "drizzle-orm";
 import { db, cartTable, purchasedTable, modulesTable } from "@workspace/db";
 import { AddToCartParams, RemoveFromCartParams } from "@workspace/api-zod";
@@ -26,22 +26,25 @@ async function buildCartResponse(userId: string) {
         moduleId: mod.id,
         title: mod.title,
         price: mod.price,
+        price3Month: mod.price3Month ?? null,
+        price1Year: mod.price1Year ?? null,
+        priceLifetime: mod.priceLifetime ?? null,
         category: mod.category,
         duration: mod.duration,
       };
     })
     .filter(Boolean);
 
-  const total = items.reduce((sum, item) => sum + (item?.price ?? 0), 0);
-  return { items, total };
+  // Total is 0 here — actual total is computed client-side after tier selection
+  return { items, total: 0 };
 }
 
-router.get("/cart", requireAuth, async (req, res): Promise<void> => {
+router.get("/cart", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   res.json(await buildCartResponse(userId));
 });
 
-router.post("/cart/:moduleId", requireAuth, async (req, res): Promise<void> => {
+router.post("/cart/:moduleId", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const params = AddToCartParams.safeParse(req.params);
   if (!params.success) {
@@ -60,7 +63,7 @@ router.post("/cart/:moduleId", requireAuth, async (req, res): Promise<void> => {
 router.delete(
   "/cart/:moduleId",
   requireAuth,
-  async (req, res): Promise<void> => {
+  async (req: Request, res: Response): Promise<void> => {
     const userId = (req as AuthedRequest).userId;
     const params = RemoveFromCartParams.safeParse(req.params);
     if (!params.success) {
@@ -81,7 +84,7 @@ router.delete(
   },
 );
 
-router.post("/checkout", requireAuth, async (req, res): Promise<void> => {
+router.post("/checkout", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
   const cartRows = await db
     .select()
@@ -96,7 +99,7 @@ router.post("/checkout", requireAuth, async (req, res): Promise<void> => {
 
   await db
     .insert(purchasedTable)
-    .values(moduleIds.map((id) => ({ userId, moduleId: id })))
+    .values(moduleIds.map((id) => ({ userId, moduleId: id, tier: "lifetime" })))
     .onConflictDoNothing();
 
   await db.delete(cartTable).where(eq(cartTable.userId, userId));
@@ -104,13 +107,41 @@ router.post("/checkout", requireAuth, async (req, res): Promise<void> => {
   res.json({ purchased: moduleIds });
 });
 
-router.get("/purchased", requireAuth, async (req, res): Promise<void> => {
+// ── GET /purchased ─────────────────────────────────────────────────────────────
+// Returns non-expired module IDs for the current user.
+router.get("/purchased", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const userId = (req as AuthedRequest).userId;
+  const now = new Date();
   const rows = await db
     .select()
     .from(purchasedTable)
     .where(eq(purchasedTable.userId, userId));
-  res.json(rows.map((r) => r.moduleId));
+
+  // Filter out expired timed purchases
+  const active = rows.filter(
+    (r) => r.expiresAt === null || r.expiresAt === undefined || r.expiresAt > now,
+  );
+  res.json(active.map((r) => r.moduleId));
+});
+
+// ── GET /purchased/details ─────────────────────────────────────────────────────
+// Returns all purchased rows (including expired) with tier and expiry info.
+router.get("/purchased/details", requireAuth, async (req: Request, res: Response): Promise<void> => {
+  const userId = (req as AuthedRequest).userId;
+  const now = new Date();
+  const rows = await db
+    .select()
+    .from(purchasedTable)
+    .where(eq(purchasedTable.userId, userId));
+
+  res.json(
+    rows.map((r) => ({
+      moduleId: r.moduleId,
+      tier: r.tier,
+      expiresAt: r.expiresAt?.toISOString() ?? null,
+      isExpired: r.expiresAt !== null && r.expiresAt !== undefined && r.expiresAt <= now,
+    })),
+  );
 });
 
 export default router;

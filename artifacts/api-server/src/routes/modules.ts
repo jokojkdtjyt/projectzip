@@ -12,6 +12,7 @@ import {
 } from "@workspace/api-zod";
 import { sql } from "drizzle-orm";
 import { requireAuth, type AuthedRequest } from "../middlewares/requireAuth";
+import { requireAdmin } from "../middlewares/requireAdmin";
 
 const router: IRouter = Router();
 
@@ -62,7 +63,7 @@ router.get("/modules", async (req, res): Promise<void> => {
   res.json(result);
 });
 
-router.post("/modules", async (req, res): Promise<void> => {
+router.post("/modules", requireAdmin, async (req, res): Promise<void> => {
   const parsed = CreateModuleBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -121,7 +122,7 @@ router.get("/modules/:moduleId", async (req, res): Promise<void> => {
   res.json({ ...mod, lessonCount: Number(counts.total), liveLessonCount: Number(counts.live) });
 });
 
-router.patch("/modules/:moduleId", async (req, res): Promise<void> => {
+router.patch("/modules/:moduleId", requireAdmin, async (req, res): Promise<void> => {
   const params = UpdateModuleParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -182,7 +183,7 @@ router.post("/modules/:moduleId/enroll-free", requireAuth, async (req, res): Pro
   res.json({ success: true, moduleId });
 });
 
-router.delete("/modules/:moduleId", async (req, res): Promise<void> => {
+router.delete("/modules/:moduleId", requireAdmin, async (req, res): Promise<void> => {
   const params = DeleteModuleParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

@@ -16,6 +16,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { setAuthTokenGetter, setExtraHeaders } from "@workspace/api-client-react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { GlobalUploadBanner } from "@/components/GlobalUploadBanner";
+import { WelcomeEmailSender } from "@/components/layout/WelcomeEmailSender";
+import { initPostHog } from "@/lib/posthog";
+
+// Initialise PostHog analytics (idempotent — safe to call before React mounts)
+initPostHog();
 
 // Shells
 import { StudentShell } from "@/components/layout/StudentShell";
@@ -37,8 +42,9 @@ import AdminStudents from "@/pages/admin/AdminStudents";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import AdminPurchaseRequests from "@/pages/admin/AdminPurchaseRequests";
 
-// Auth + Landing pages
+// Auth + Landing + Legal pages
 import Landing from "@/pages/Landing";
+import Terms from "@/pages/Terms";
 import NotFound from "@/pages/not-found";
 
 // ─── Clerk setup (copy verbatim per skill instructions) ───────────────────────
@@ -404,6 +410,9 @@ function AppRoutes() {
         </AdminRoute>
       </Route>
 
+      {/* Legal */}
+      <Route path="/terms" component={Terms} />
+
       <Route component={NotFound} />
     </Switch>
   );
@@ -444,6 +453,7 @@ function ClerkProviderWithRoutes() {
         <TooltipProvider>
           <AppRoutes />
           <GlobalUploadBanner />
+          <WelcomeEmailSender />
           <Toaster position="bottom-right" />
         </TooltipProvider>
       </QueryClientProvider>

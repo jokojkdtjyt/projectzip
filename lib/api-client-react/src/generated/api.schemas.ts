@@ -18,6 +18,10 @@ export interface Module {
   rating: number;
   students: number;
   price: number;
+  /** null = tier disabled */
+  price3Month?: number | null;
+  price1Year?: number | null;
+  priceLifetime?: number | null;
   duration: string;
   published: boolean;
   icon: string;
@@ -39,6 +43,9 @@ export interface ModuleInput {
   rating?: number;
   students?: number;
   price?: number;
+  price3Month?: number | null;
+  price1Year?: number | null;
+  priceLifetime?: number | null;
   duration: string;
   published?: boolean;
   icon: string;
@@ -58,6 +65,9 @@ export interface ModuleUpdate {
   rating?: number;
   students?: number;
   price?: number;
+  price3Month?: number | null;
+  price1Year?: number | null;
+  priceLifetime?: number | null;
   duration?: string;
   published?: boolean;
   icon?: string;
@@ -67,6 +77,16 @@ export interface ModuleUpdate {
   summary?: string;
   outcomes?: string[];
   isFree?: boolean;
+}
+
+/** Purchase with tier and expiry info */
+export interface PurchasedDetail {
+  moduleId: string;
+  /** '3month' | '1year' | 'lifetime' */
+  tier: string;
+  /** ISO string or null for lifetime */
+  expiresAt: string | null;
+  isExpired: boolean;
 }
 
 export type LessonType = typeof LessonType[keyof typeof LessonType];
@@ -204,6 +224,10 @@ export interface CartItem {
   moduleId: string;
   title: string;
   price: number;
+  /** null = tier disabled */
+  price3Month?: number | null;
+  price1Year?: number | null;
+  priceLifetime?: number | null;
   category: string;
   duration: string;
 }

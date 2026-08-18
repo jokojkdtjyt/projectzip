@@ -5,3 +5,4 @@ export * from "./progress";
 export * from "./cart";
 export * from "./admins";
 export * from "./notifications";
+export * from "./disputes";

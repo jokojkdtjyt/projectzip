@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '@clerk/react';
-import { useQuery } from '@tanstack/react-query';
-import { Receipt, Clock, CheckCircle2, XCircle, ExternalLink, Inbox } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Receipt, Clock, CheckCircle2, XCircle, ExternalLink, Inbox, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface PurchaseGroup {
   sessionId: string;
@@ -42,7 +43,9 @@ function StatusBadge({ status }: { status: PurchaseGroup['status'] }) {
 
 export default function AdminPurchaseRequests() {
   const { getToken } = useAuth();
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const { data: requests, isLoading } = useQuery<PurchaseGroup[]>({
     queryKey: ['admin', 'purchases'],
@@ -54,7 +57,7 @@ export default function AdminPurchaseRequests() {
       if (!res.ok) throw new Error('Failed to load purchase requests');
       return res.json();
     },
-    refetchInterval: 15_000, // auto-refresh every 15s
+    refetchInterval: 15_000,
   });
 
   const filtered = requests?.filter(
@@ -71,6 +74,56 @@ export default function AdminPurchaseRequests() {
   const receiptUrl = (sessionId: string) =>
     `/api/admin/purchases/receipt/${sessionId}`;
 
+  const handleApprove = async (sessionId: string) => {
+    setActionLoading(sessionId);
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/admin/purchases/${sessionId}/approve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? 'Approval failed');
+      }
+      toast.success('Purchase approved — modules unlocked!', {
+        style: { background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--border)' }
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'purchases'] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Something went wrong', {
+        style: { background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--border)' }
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReject = async (sessionId: string) => {
+    setActionLoading(sessionId);
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/admin/purchases/${sessionId}/reject`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? 'Rejection failed');
+      }
+      toast.success('Purchase rejected.', {
+        style: { background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--border)' }
+      });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'purchases'] });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Something went wrong', {
+        style: { background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--border)' }
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header */}
@@ -80,7 +133,7 @@ export default function AdminPurchaseRequests() {
             Purchase Requests
           </h1>
           <p className="text-muted-foreground">
-            Students submit payment receipts here. Approve or reject via Telegram.
+            Review payment receipts and approve to unlock modules for students.
           </p>
         </div>
         {counts.pending > 0 && (
@@ -120,18 +173,19 @@ export default function AdminPurchaseRequests() {
                 <th className="p-5 font-bold">Submitted</th>
                 <th className="p-5 font-bold">Status</th>
                 <th className="p-5 font-bold text-right">Receipt</th>
+                <th className="p-5 font-bold text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-muted-foreground font-mono">
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground font-mono">
                     Loading requests...
                   </td>
                 </tr>
               ) : !filtered || filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-16 text-center">
+                  <td colSpan={6} className="p-16 text-center">
                     <Inbox className="w-12 h-12 text-muted-foreground opacity-20 mx-auto mb-4" />
                     <p className="font-bold text-foreground">No purchase requests.</p>
                     <p className="text-sm text-muted-foreground mt-1">
@@ -214,6 +268,36 @@ export default function AdminPurchaseRequests() {
                         <span className="text-xs text-muted-foreground font-mono">—</span>
                       )}
                     </td>
+
+                    {/* Actions */}
+                    <td className="p-5 text-center">
+                      {req.status === 'pending' ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleApprove(req.sessionId)}
+                            disabled={actionLoading === req.sessionId}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 font-bold text-xs font-mono transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {actionLoading === req.sessionId ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <ThumbsUp className="w-3.5 h-3.5" />
+                            )}
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleReject(req.sessionId)}
+                            disabled={actionLoading === req.sessionId}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:text-red-800 font-bold text-xs font-mono transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <ThumbsDown className="w-3.5 h-3.5" />
+                            Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground font-mono">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -224,7 +308,7 @@ export default function AdminPurchaseRequests() {
         {/* Footer hint */}
         <div className="px-6 py-4 border-t border-border bg-secondary/20">
           <p className="text-xs text-muted-foreground font-mono">
-            Approval and rejection happen in Telegram. This table auto-refreshes every 15 seconds.
+            Approving unlocks all modules in the request. Table auto-refreshes every 15 seconds.
           </p>
         </div>
       </div>

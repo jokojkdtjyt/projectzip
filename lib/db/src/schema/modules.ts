@@ -10,7 +10,10 @@ export const modulesTable = pgTable("modules", {
   provider: text("provider").notNull().default("PreClinik Faculty"),
   rating: real("rating").notNull().default(0),
   students: integer("students").notNull().default(0),
-  price: integer("price").notNull().default(800),
+  price: integer("price").notNull().default(0), // kept for backward compat; use tier prices instead
+  price3Month: integer("price_3_month"),        // null = tier disabled
+  price1Year: integer("price_1_year"),
+  priceLifetime: integer("price_lifetime"),
   duration: text("duration").notNull(),
   published: boolean("published").notNull().default(false),
   icon: text("icon").notNull().default("heart"),

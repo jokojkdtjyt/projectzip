@@ -1,11 +1,15 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import multer from "multer";
-import { db, cartTable, purchasedTable, pendingPurchasesTable, modulesTable, notificationsTable } from "@workspace/db";
+import { db, cartTable, purchasedTable, pendingPurchasesTable, modulesTable, notificationsTable, disputesTable } from "@workspace/db";
 import { requireAuth, type AuthedRequest } from "../middlewares/requireAuth";
 import { requireAdmin } from "../middlewares/requireAdmin";
 import { clerkClient } from "@clerk/express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import crypto from "node:crypto";
+import {
+  sendPurchaseApprovedEmail,
+  sendPurchaseRejectedEmail,
+} from "../lib/email";
 
 /** 1 minute for testing — change to 6 * 3600 * 1000 for production */
 const REMIND_COOLDOWN_MS = 60 * 1_000;
@@ -38,6 +42,25 @@ if (BOT_TOKEN && DEV_DOMAIN) {
     .catch((e) => console.error("[Telegram] Webhook registration failed:", e));
 }
 
+type TierKey = "3month" | "1year" | "lifetime";
+
+function tierLabel(tier: TierKey | string): string {
+  if (tier === "3month") return "3-Month";
+  if (tier === "1year") return "1-Year";
+  return "Lifetime";
+}
+
+function computeExpiresAt(tier: TierKey | string): Date | null {
+  const now = new Date();
+  if (tier === "3month") {
+    return new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+  }
+  if (tier === "1year") {
+    return new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+  }
+  return null; // lifetime — no expiry
+}
+
 // ── POST /purchases/submit ────────────────────────────────────────────────────
 router.post(
   "/purchases/submit",
@@ -51,7 +74,16 @@ router.post(
       return;
     }
 
-    // 1. Get cart items
+    // 1. Parse tier selections: JSON map of { moduleId -> tier }
+    let tiersMap: Record<string, string> = {};
+    try {
+      const tiersRaw = (req.body as Record<string, string>).tiers;
+      if (tiersRaw) tiersMap = JSON.parse(tiersRaw) as Record<string, string>;
+    } catch {
+      // If not provided, default all to lifetime
+    }
+
+    // 2. Get cart items
     const cartRows = await db
       .select()
       .from(cartTable)
@@ -64,12 +96,24 @@ router.post(
 
     const moduleIds = cartRows.map((r) => r.moduleId);
 
-    // 2. Fetch module titles
+    // 3. Fetch module data
     const allModules = await db.select().from(modulesTable);
     const moduleMap = new Map(allModules.map((m) => [m.id, m]));
-    const moduleNames = moduleIds.map((id) => moduleMap.get(id)?.title ?? id);
 
-    // 3. Get user info from Clerk
+    // 4. Resolve tier + tierPrice per module
+    const moduleTiers = moduleIds.map((moduleId) => {
+      const mod = moduleMap.get(moduleId);
+      const tier = (tiersMap[moduleId] as TierKey) || "lifetime";
+      let tierPrice: number | null = null;
+      if (mod) {
+        if (tier === "3month") tierPrice = mod.price3Month ?? null;
+        else if (tier === "1year") tierPrice = mod.price1Year ?? null;
+        else tierPrice = mod.priceLifetime ?? mod.price ?? null;
+      }
+      return { moduleId, tier, tierPrice };
+    });
+
+    // 5. Get user info from Clerk
     const user = await clerkClient.users.getUser(userId);
     const name =
       `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Unknown";
@@ -79,12 +123,14 @@ router.post(
       user.emailAddresses[0]?.emailAddress ??
       "Unknown";
 
-    // 4. Session ID groups all modules in this checkout
+    // 6. Session ID groups all modules in this checkout
     const sessionId = crypto.randomUUID();
 
-    // 5. Send photo + inline buttons to Telegram
+    // 7. Send photo + inline buttons to Telegram
     let telegramMessageId: number | null = null;
     let telegramFileId = "";
+
+    const totalAmount = moduleTiers.reduce((s, t) => s + (t.tierPrice ?? 0), 0);
 
     if (BOT_TOKEN && CHAT_ID) {
       const caption = [
@@ -93,7 +139,13 @@ router.post(
         `<b>Student:</b> ${escapeHtml(name)}`,
         `<b>Email:</b> ${escapeHtml(email)}`,
         `<b>Modules:</b>`,
-        ...moduleNames.map((n) => `  • ${escapeHtml(n)}`),
+        ...moduleTiers.map(({ moduleId, tier, tierPrice }) => {
+          const title = moduleMap.get(moduleId)?.title ?? moduleId;
+          const priceStr = tierPrice != null ? `${tierPrice.toLocaleString()} DZD` : "?";
+          return `  • ${escapeHtml(title)} (${tierLabel(tier)} — ${priceStr})`;
+        }),
+        ``,
+        `<b>Total:</b> ${totalAmount.toLocaleString()} DZD`,
         ``,
         `<code>session: ${sessionId}</code>`,
       ].join("\n");
@@ -107,6 +159,7 @@ router.post(
         ],
       });
 
+      // Build FormData once — reused across retries
       const formData = new FormData();
       formData.append("chat_id", CHAT_ID);
       formData.append("caption", caption);
@@ -118,43 +171,62 @@ router.post(
         req.file.originalname || "receipt.jpg"
       );
 
-      try {
-        const tgRes = await fetch(
-          `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,
-          { method: "POST", body: formData }
-        );
-        const tgJson = (await tgRes.json()) as {
-          ok: boolean;
-          result?: {
-            message_id: number;
-            photo?: Array<{ file_id: string }>;
+      // Retry loop for transient network errors (ECONNRESET, etc.)
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY_MS = 1_000;
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          const tgRes = await fetch(
+            `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,
+            { method: "POST", body: formData }
+          );
+          const tgJson = (await tgRes.json()) as {
+            ok: boolean;
+            result?: {
+              message_id: number;
+              photo?: Array<{ file_id: string }>;
+            };
           };
-        };
-        if (tgJson.ok && tgJson.result) {
-          telegramMessageId = tgJson.result.message_id;
-          telegramFileId = tgJson.result.photo?.at(-1)?.file_id ?? "";
-        } else {
-          console.error("[Telegram] sendPhoto not ok:", JSON.stringify(tgJson));
+          if (tgJson.ok && tgJson.result) {
+            telegramMessageId = tgJson.result.message_id;
+            telegramFileId = tgJson.result.photo?.at(-1)?.file_id ?? "";
+            break; // success — exit retry loop
+          } else {
+            console.error(`[Telegram] sendPhoto attempt ${attempt} not ok:`, JSON.stringify(tgJson));
+          }
+        } catch (err) {
+          console.error(`[Telegram] sendPhoto attempt ${attempt} failed:`, err);
         }
-      } catch (err) {
-        console.error("[Telegram] sendPhoto failed:", err);
+
+        if (attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        }
+      }
+
+      // If all retries exhausted and we still don't have a message id, abort the request
+      if (!telegramMessageId) {
+        console.error("[Telegram] All sendPhoto retries exhausted — aborting purchase submission.");
+        res.status(502).json({ error: "Failed to send receipt to admin. Please try again." });
+        return;
       }
     }
 
-    // 6. Insert one pending_purchase row per module
+    // 8. Insert one pending_purchase row per module (with tier + tierPrice)
     await db.insert(pendingPurchasesTable).values(
-      moduleIds.map((moduleId) => ({
+      moduleTiers.map(({ moduleId, tier, tierPrice }) => ({
         id: crypto.randomUUID(),
         userId,
         moduleId,
         imageUrl: telegramFileId || "pending",
         status: "pending" as const,
         sessionId,
+        tier,
+        tierPrice: tierPrice ?? undefined,
         ...(telegramMessageId != null ? { telegramMessageId } : {}),
       }))
     );
 
-    // 7. Clear the user's cart
+    // 9. Clear the user's cart
     await db.delete(cartTable).where(eq(cartTable.userId, userId));
 
     res.json({ ok: true, sessionId });
@@ -162,8 +234,6 @@ router.post(
 );
 
 // ── GET /purchases/pending ────────────────────────────────────────────────────
-// Returns the current user's pending purchase sessions so the frontend can
-// show "Pending Review" badges and the Notify Again countdown.
 router.get(
   "/purchases/pending",
   requireAuth,
@@ -180,7 +250,6 @@ router.get(
         ),
       );
 
-    // Group by sessionId
     type SessionGroup = {
       sessionId: string;
       moduleIds: string[];
@@ -204,10 +273,324 @@ router.get(
   },
 );
 
+// ── GET /purchases/rejected ───────────────────────────────────────────────────
+router.get(
+  "/purchases/rejected",
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = (req as AuthedRequest).userId;
+
+    // Get module IDs from rejected pending_purchases that have no active purchased entry
+    const rejectedRows = await db
+      .select()
+      .from(pendingPurchasesTable)
+      .where(
+        and(
+          eq(pendingPurchasesTable.userId, userId),
+          eq(pendingPurchasesTable.status, "rejected"),
+        ),
+      );
+
+    // Also get any active disputes for this user
+    const activeDisputes = await db
+      .select()
+      .from(disputesTable)
+      .where(
+        and(
+          eq(disputesTable.userId, userId),
+          eq(disputesTable.status, "pending"),
+        ),
+      );
+
+    const disputedModuleIds = new Set(activeDisputes.map((d) => d.moduleId));
+
+    // Only include modules that aren't purchased and don't already have a pending dispute
+    const purchasedRows = await db
+      .select()
+      .from(purchasedTable)
+      .where(eq(purchasedTable.userId, userId));
+    const purchasedModuleIds = new Set(purchasedRows.map((r) => r.moduleId));
+
+    const rejectedModuleIds = [
+      ...new Set(
+        rejectedRows
+          .filter((r) => !purchasedModuleIds.has(r.moduleId) && !disputedModuleIds.has(r.moduleId))
+          .map((r) => r.moduleId),
+      ),
+    ];
+
+    res.json(rejectedModuleIds);
+  },
+);
+
+// ── POST /purchases/disputes/submit ────────────────────────────────────────────
+router.post(
+  "/purchases/disputes/submit",
+  requireAuth,
+  upload.single("receipt") as ReturnType<typeof upload.single>,
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = (req as AuthedRequest).userId;
+    const { moduleId, message } = req.body as { moduleId?: string; message?: string };
+
+    if (!moduleId || !message?.trim()) {
+      res.status(400).json({ error: "moduleId and message are required" });
+      return;
+    }
+
+    // Check the user actually had a rejected purchase for this module
+    const [rejected] = await db
+      .select()
+      .from(pendingPurchasesTable)
+      .where(
+        and(
+          eq(pendingPurchasesTable.userId, userId),
+          eq(pendingPurchasesTable.moduleId, moduleId),
+          eq(pendingPurchasesTable.status, "rejected"),
+        ),
+      )
+      .limit(1);
+
+    if (!rejected) {
+      res.status(400).json({ error: "No rejected purchase found for this module" });
+      return;
+    }
+
+    // Fetch module info
+    const allModules = await db.select().from(modulesTable);
+    const moduleMap = new Map(allModules.map((m) => [m.id, m]));
+    const mod = moduleMap.get(moduleId);
+    const moduleTitle = mod?.title ?? moduleId;
+
+    // Get user info
+    const user = await clerkClient.users.getUser(userId);
+    const name =
+      `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Unknown";
+    const email =
+      user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
+        ?.emailAddress ??
+      user.emailAddresses[0]?.emailAddress ??
+      "Unknown";
+
+    const disputeId = crypto.randomUUID();
+    let telegramMessageId: number | null = null;
+    let telegramFileId: string | null = null;
+
+    // Send to Telegram
+    if (BOT_TOKEN && CHAT_ID) {
+      const caption = [
+        `<b>⚠️ Support Request</b>`,
+        ``,
+        `<b>Student:</b> ${escapeHtml(name)}`,
+        `<b>Email:</b> ${escapeHtml(email)}`,
+        `<b>Module:</b> ${escapeHtml(moduleTitle)}`,
+        ``,
+        `<b>Message:</b>`,
+        escapeHtml(message.trim()),
+        ``,
+        `<code>dispute: ${disputeId}</code>`,
+      ].join("\n");
+
+      const replyMarkup = JSON.stringify({
+        inline_keyboard: [
+          [
+            { text: "✅ Approve", callback_data: `dispute_approve:${disputeId}` },
+            { text: "❌ Reject", callback_data: `dispute_reject:${disputeId}` },
+          ],
+        ],
+      });
+
+      if (req.file) {
+        // Send photo with caption
+        const formData = new FormData();
+        formData.append("chat_id", CHAT_ID);
+        formData.append("caption", caption);
+        formData.append("parse_mode", "HTML");
+        formData.append("reply_markup", replyMarkup);
+        formData.append(
+          "photo",
+          new Blob([new Uint8Array(req.file.buffer)], { type: req.file.mimetype }),
+          req.file.originalname || "dispute.jpg",
+        );
+
+        try {
+          const tgRes = await fetch(
+            `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,
+            { method: "POST", body: formData },
+          );
+          const tgJson = (await tgRes.json()) as {
+            ok: boolean;
+            result?: {
+              message_id: number;
+              photo?: Array<{ file_id: string }>;
+            };
+          };
+          if (tgJson.ok && tgJson.result) {
+            telegramMessageId = tgJson.result.message_id;
+            telegramFileId = tgJson.result.photo?.at(-1)?.file_id ?? null;
+          } else {
+            console.error("[Telegram] dispute sendPhoto not ok:", JSON.stringify(tgJson));
+          }
+        } catch (err) {
+          console.error("[Telegram] dispute sendPhoto failed:", err);
+        }
+      } else {
+        // No image — send as text message
+        try {
+          const tgRes = await fetch(
+            `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                chat_id: CHAT_ID,
+                text: caption,
+                parse_mode: "HTML",
+                reply_markup: replyMarkup,
+              }),
+            },
+          );
+          const tgJson = (await tgRes.json()) as {
+            ok: boolean;
+            result?: { message_id: number };
+          };
+          if (tgJson.ok && tgJson.result) {
+            telegramMessageId = tgJson.result.message_id;
+          } else {
+            console.error("[Telegram] dispute sendMessage not ok:", JSON.stringify(tgJson));
+          }
+        } catch (err) {
+          console.error("[Telegram] dispute sendMessage failed:", err);
+        }
+      }
+    }
+
+    // Insert dispute record
+    const now = new Date();
+    await db.insert(disputesTable).values({
+      id: disputeId,
+      userId,
+      moduleId,
+      message: message.trim(),
+      imageUrl: telegramFileId,
+      status: "pending",
+      createdAt: now,
+      ...(telegramMessageId != null ? { telegramMessageId } : {}),
+    });
+
+    res.json({ ok: true, disputeId, createdAt: now.toISOString() });
+  },
+);
+
+// ── POST /purchases/disputes/remind/:disputeId ────────────────────────────────
+router.post(
+  "/purchases/disputes/remind/:disputeId",
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const userId = (req as AuthedRequest).userId;
+    const { disputeId } = req.params as { disputeId: string };
+
+    const [dispute] = await db
+      .select()
+      .from(disputesTable)
+      .where(
+        and(
+          eq(disputesTable.id, disputeId),
+          eq(disputesTable.userId, userId),
+          eq(disputesTable.status, "pending"),
+        ),
+      )
+      .limit(1);
+
+    if (!dispute) {
+      res.status(404).json({ error: "Dispute not found or no longer pending" });
+      return;
+    }
+
+    const now = new Date();
+    const lastReminded = dispute.lastRemindedAt;
+
+    if (lastReminded && now.getTime() - lastReminded.getTime() < REMIND_COOLDOWN_MS) {
+      const remainingMs = REMIND_COOLDOWN_MS - (now.getTime() - lastReminded.getTime());
+      res.status(429).json({ error: "Too soon to remind", remainingMs });
+      return;
+    }
+
+    const createdAt = dispute.createdAt;
+    if (!lastReminded && now.getTime() - createdAt.getTime() < REMIND_COOLDOWN_MS) {
+      const remainingMs = REMIND_COOLDOWN_MS - (now.getTime() - createdAt.getTime());
+      res.status(429).json({ error: "Too soon to remind", remainingMs });
+      return;
+    }
+
+    // Fetch module info
+    const allModules = await db.select().from(modulesTable);
+    const moduleMap = new Map(allModules.map((m) => [m.id, m]));
+    const moduleTitle = moduleMap.get(dispute.moduleId)?.title ?? dispute.moduleId;
+
+    const user = await clerkClient.users.getUser(userId);
+    const name = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Unknown";
+    const email =
+      user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
+        ?.emailAddress ??
+      user.emailAddresses[0]?.emailAddress ??
+      "Unknown";
+
+    if (BOT_TOKEN && CHAT_ID) {
+      const caption = [
+        `<b>🔔 Reminder: Support Request</b>`,
+        ``,
+        `<b>Student:</b> ${escapeHtml(name)}`,
+        `<b>Email:</b> ${escapeHtml(email)}`,
+        `<b>Module:</b> ${escapeHtml(moduleTitle)}`,
+        ``,
+        `<b>Message:</b>`,
+        escapeHtml(dispute.message),
+        ``,
+        `<code>dispute: ${disputeId}</code>`,
+      ].join("\n");
+
+      const replyMarkup = JSON.stringify({
+        inline_keyboard: [
+          [
+            { text: "✅ Approve", callback_data: `dispute_approve:${disputeId}` },
+            { text: "❌ Reject", callback_data: `dispute_reject:${disputeId}` },
+          ],
+        ],
+      });
+
+      try {
+        const tgRes = await fetch(
+          `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: CHAT_ID,
+              text: caption,
+              parse_mode: "HTML",
+              reply_markup: replyMarkup,
+            }),
+          },
+        );
+        const tgJson = (await tgRes.json()) as { ok: boolean };
+        if (!tgJson.ok) {
+          console.error("[Telegram] dispute remind sendMessage not ok:", JSON.stringify(tgJson));
+        }
+      } catch (err) {
+        console.error("[Telegram] dispute remind sendMessage failed:", err);
+      }
+    }
+
+    await db
+      .update(disputesTable)
+      .set({ lastRemindedAt: now })
+      .where(eq(disputesTable.id, disputeId));
+
+    res.json({ ok: true });
+  },
+);
+
 // ── POST /purchases/remind/:sessionId ─────────────────────────────────────────
-// Re-sends the original Telegram notification as a reminder.
-// Rate-limited by REMIND_COOLDOWN_MS; uses the stored Telegram file_id so no
-// re-upload is needed.
 router.post(
   "/purchases/remind/:sessionId",
   requireAuth,
@@ -241,7 +624,6 @@ router.post(
       return;
     }
 
-    // Also enforce cooldown from createdAt on the very first reminder
     const createdAt = firstRow.createdAt;
     if (!lastReminded && now.getTime() - createdAt.getTime() < REMIND_COOLDOWN_MS) {
       const remainingMs = REMIND_COOLDOWN_MS - (now.getTime() - createdAt.getTime());
@@ -255,7 +637,6 @@ router.post(
     const moduleIds = pending.map((p) => p.moduleId);
     const moduleNames = moduleIds.map((id) => moduleMap.get(id)?.title ?? id);
 
-    // Get user info from Clerk
     const user = await clerkClient.users.getUser(userId);
     const name = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Unknown";
     const email =
@@ -271,7 +652,11 @@ router.post(
         `<b>Student:</b> ${escapeHtml(name)}`,
         `<b>Email:</b> ${escapeHtml(email)}`,
         `<b>Modules:</b>`,
-        ...moduleNames.map((n) => `  • ${escapeHtml(n)}`),
+        ...pending.map(({ moduleId, tier, tierPrice }) => {
+          const title = moduleMap.get(moduleId)?.title ?? moduleId;
+          const priceStr = tierPrice != null ? `${tierPrice.toLocaleString()} DZD` : "?";
+          return `  • ${escapeHtml(title)} (${tierLabel(tier)} — ${priceStr})`;
+        }),
         ``,
         `<code>session: ${sessionId}</code>`,
       ].join("\n");
@@ -288,7 +673,6 @@ router.post(
       const imageFileId = firstRow.imageUrl;
 
       if (imageFileId && imageFileId !== "pending") {
-        // Reuse stored file_id — no re-upload needed
         try {
           const tgRes = await fetch(
             `https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`,
@@ -314,7 +698,6 @@ router.post(
       }
     }
 
-    // Update lastRemindedAt for all rows in this session
     await db
       .update(pendingPurchasesTable)
       .set({ lastRemindedAt: now })
@@ -328,7 +711,6 @@ router.post(
 router.post(
   "/purchases/telegram-webhook",
   async (req: Request, res: Response): Promise<void> => {
-    // Respond 200 immediately so Telegram doesn't retry
     res.json({ ok: true });
 
     if (!BOT_TOKEN) return;
@@ -347,11 +729,137 @@ router.post(
     const colonIdx = cq.data.indexOf(":");
     if (colonIdx === -1) return;
     const action = cq.data.slice(0, colonIdx);
-    const sessionId = cq.data.slice(colonIdx + 1);
-    if (!sessionId || action === "noop") return;
+    const entityId = cq.data.slice(colonIdx + 1);
+    if (!entityId || action === "noop") return;
 
     const msgId = cq.message?.message_id;
     const chatId = cq.message?.chat?.id;
+
+    // ── Dispute actions ──────────────────────────────────────────────────
+    if (action === "dispute_approve") {
+      const [dispute] = await db
+        .select()
+        .from(disputesTable)
+        .where(eq(disputesTable.id, entityId))
+        .limit(1);
+
+      if (dispute && dispute.status === "pending") {
+        const { userId, moduleId } = dispute;
+
+        // Grant access — insert into purchased (using the same tier info from the rejected purchase)
+        const [rejected] = await db
+          .select()
+          .from(pendingPurchasesTable)
+          .where(
+            and(
+              eq(pendingPurchasesTable.userId, userId),
+              eq(pendingPurchasesTable.moduleId, moduleId),
+              eq(pendingPurchasesTable.status, "rejected"),
+            ),
+          )
+          .limit(1);
+
+        const tier = rejected?.tier ?? "lifetime";
+
+        await db
+          .insert(purchasedTable)
+          .values({
+            userId,
+            moduleId,
+            tier,
+            expiresAt: computeExpiresAt(tier),
+          })
+          .onConflictDoNothing();
+
+        await db
+          .update(disputesTable)
+          .set({ status: "approved" })
+          .where(eq(disputesTable.id, entityId));
+
+        // Notify the student
+        const allModules = await db.select().from(modulesTable);
+        const moduleMap = new Map(allModules.map((m) => [m.id, m]));
+        const moduleTitle = moduleMap.get(moduleId)?.title ?? moduleId;
+        await db.insert(notificationsTable).values({
+          id: crypto.randomUUID(),
+          userId,
+          type: "purchase_approved",
+          title: "Dispute Resolved — Access Granted 🎉",
+          body: `Your access to ${moduleTitle} has been granted after review.`,
+          moduleId,
+        });
+
+        // Send email
+        const [user] = await Promise.all([
+          clerkClient.users.getUser(userId).catch(() => null),
+        ]);
+        if (user) {
+          const email =
+            user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
+              ?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
+          if (email) {
+            sendPurchaseApprovedEmail(email, [moduleTitle]).catch((err) =>
+              console.error("[Email] dispute_approve email failed:", err),
+            );
+          }
+        }
+      }
+
+      await tgAnswer(cq.id, "✅ Dispute approved — access granted!");
+      if (chatId && msgId) await tgEditMarkup(chatId, msgId, "✅ APPROVED");
+      res.json({ ok: true });
+      return;
+    }
+
+    if (action === "dispute_reject") {
+      await db
+        .update(disputesTable)
+        .set({ status: "rejected" })
+        .where(eq(disputesTable.id, entityId));
+
+      const [dispute] = await db
+        .select()
+        .from(disputesTable)
+        .where(eq(disputesTable.id, entityId))
+        .limit(1);
+
+      if (dispute) {
+        const allModules = await db.select().from(modulesTable);
+        const moduleMap = new Map(allModules.map((m) => [m.id, m]));
+        const moduleTitle = moduleMap.get(dispute.moduleId)?.title ?? dispute.moduleId;
+        await db.insert(notificationsTable).values({
+          id: crypto.randomUUID(),
+          userId: dispute.userId,
+          type: "purchase_rejected",
+          title: "Support Request Denied",
+          body: `Your support request for ${moduleTitle} was not approved. Please contact support for more information.`,
+          moduleId: dispute.moduleId,
+        });
+
+        // Send email
+        const [user] = await Promise.all([
+          clerkClient.users.getUser(dispute.userId).catch(() => null),
+        ]);
+        if (user) {
+          const email =
+            user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
+              ?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
+          if (email) {
+            sendPurchaseRejectedEmail(email, moduleTitle, true).catch((err) =>
+              console.error("[Email] dispute_reject email failed:", err),
+            );
+          }
+        }
+      }
+
+      await tgAnswer(cq.id, "❌ Dispute rejected");
+      if (chatId && msgId) await tgEditMarkup(chatId, msgId, "❌ REJECTED");
+      res.json({ ok: true });
+      return;
+    }
+
+    // ── Existing purchase actions ─────────────────────────────────────────
+    // (msgId and chatId from lines above are reused here)
 
     if (action === "approve") {
       const pending = await db
@@ -359,7 +867,7 @@ router.post(
         .from(pendingPurchasesTable)
         .where(
           and(
-            eq(pendingPurchasesTable.sessionId, sessionId),
+            eq(pendingPurchasesTable.sessionId, entityId),
             eq(pendingPurchasesTable.status, "pending")
           )
         );
@@ -368,17 +876,25 @@ router.post(
         const { userId } = pending[0];
         const moduleIds = pending.map((p) => p.moduleId);
 
+        // Insert purchased rows with tier + computed expiresAt
         await db
           .insert(purchasedTable)
-          .values(moduleIds.map((moduleId) => ({ userId, moduleId })))
+          .values(
+            pending.map((p) => ({
+              userId,
+              moduleId: p.moduleId,
+              tier: p.tier,
+              expiresAt: computeExpiresAt(p.tier),
+            }))
+          )
           .onConflictDoNothing();
 
         await db
           .update(pendingPurchasesTable)
           .set({ status: "approved" })
-          .where(eq(pendingPurchasesTable.sessionId, sessionId));
+          .where(eq(pendingPurchasesTable.sessionId, entityId));
 
-        // Notify the student their purchase was approved
+        // Notify the student
         const allModules = await db.select().from(modulesTable);
         const moduleMap = new Map(allModules.map((m) => [m.id, m]));
         const moduleNames = moduleIds.map((id) => moduleMap.get(id)?.title ?? id);
@@ -392,15 +908,59 @@ router.post(
             : `${moduleNames.slice(0, -1).join(", ")} and ${moduleNames.at(-1)} are now unlocked.`,
           moduleId: moduleIds[0] ?? null,
         });
+
+        // Send email
+        const [user] = await Promise.all([
+          clerkClient.users.getUser(userId).catch(() => null),
+        ]);
+        if (user) {
+          const email =
+            user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
+              ?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
+          if (email) {
+            sendPurchaseApprovedEmail(email, moduleNames).catch((err) =>
+              console.error("[Email] approve email failed:", err),
+            );
+          }
+        }
       }
 
       await tgAnswer(cq.id, "✅ Purchase approved!");
       if (chatId && msgId) await tgEditMarkup(chatId, msgId, "✅ APPROVED");
     } else if (action === "reject") {
+      const pendingRows = await db
+        .select()
+        .from(pendingPurchasesTable)
+        .where(eq(pendingPurchasesTable.sessionId, entityId));
+
       await db
         .update(pendingPurchasesTable)
         .set({ status: "rejected" })
-        .where(eq(pendingPurchasesTable.sessionId, sessionId));
+        .where(eq(pendingPurchasesTable.sessionId, entityId));
+
+      if (pendingRows.length > 0) {
+        const userId = pendingRows[0].userId;
+        const allModules = await db.select().from(modulesTable);
+        const moduleMap = new Map(allModules.map((m) => [m.id, m]));
+        const moduleNames = [...new Set(pendingRows.map((p) => moduleMap.get(p.moduleId)?.title ?? p.moduleId))];
+
+        // Send email for each unique module
+        const [user] = await Promise.all([
+          clerkClient.users.getUser(userId).catch(() => null),
+        ]);
+        if (user) {
+          const email =
+            user.emailAddresses.find((e) => e.id === user.primaryEmailAddressId)
+              ?.emailAddress ?? user.emailAddresses[0]?.emailAddress;
+          if (email) {
+            for (const name of moduleNames) {
+              sendPurchaseRejectedEmail(email, name, false).catch((err) =>
+                console.error("[Email] reject email failed:", err),
+              );
+            }
+          }
+        }
+      }
 
       await tgAnswer(cq.id, "❌ Purchase rejected");
       if (chatId && msgId) await tgEditMarkup(chatId, msgId, "❌ REJECTED");
@@ -445,14 +1005,14 @@ router.get(
         });
       }
       const g = groups.get(row.sessionId)!;
-      g.modules.push(moduleMap.get(row.moduleId)?.title ?? row.moduleId);
-      // pending beats everything; approved beats rejected
+      const title = moduleMap.get(row.moduleId)?.title ?? row.moduleId;
+      const priceStr = row.tierPrice != null ? ` (${tierLabel(row.tier)} — ${row.tierPrice.toLocaleString()} DZD)` : "";
+      g.modules.push(`${title}${priceStr}`);
       if (row.status === "pending") g.status = "pending";
       else if (row.status === "approved" && g.status === "rejected")
         g.status = "approved";
     }
 
-    // Enrich with Clerk user info
     const userIds = [...new Set(rows.map((r) => r.userId))];
     const resolved = await Promise.allSettled(
       userIds.map(async (uid) => {
@@ -482,7 +1042,6 @@ router.get(
       studentEmail: userMap.get(g.userId)?.email ?? "",
     }));
 
-    // Most recent first
     result.sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
@@ -492,7 +1051,6 @@ router.get(
 );
 
 // ── GET /admin/purchases/receipt/:sessionId ────────────────────────────────────
-// Proxies the receipt image from Telegram — opens a valid temp URL redirect.
 router.get(
   "/admin/purchases/receipt/:sessionId",
   requireAdmin,
@@ -526,6 +1084,120 @@ router.get(
       res.status(500).json({ error: "Failed to fetch receipt" });
     }
   }
+);
+
+// ── POST /admin/purchases/:sessionId/approve ────────────────────────────────────
+router.post(
+  "/admin/purchases/:sessionId/approve",
+  requireAdmin,
+  async (req: Request, res: Response): Promise<void> => {
+    const { sessionId } = req.params as { sessionId: string };
+
+    const pending = await db
+      .select()
+      .from(pendingPurchasesTable)
+      .where(
+        and(
+          eq(pendingPurchasesTable.sessionId, sessionId),
+          eq(pendingPurchasesTable.status, "pending"),
+        ),
+      );
+
+    if (pending.length === 0) {
+      res.status(404).json({ error: "No pending purchases found for this session" });
+      return;
+    }
+
+    const { userId } = pending[0];
+    const moduleIds = pending.map((p) => p.moduleId);
+
+    // Insert purchased rows with tier + computed expiresAt
+    await db
+      .insert(purchasedTable)
+      .values(
+        pending.map((p) => ({
+          userId,
+          moduleId: p.moduleId,
+          tier: p.tier,
+          expiresAt: computeExpiresAt(p.tier),
+        })),
+      )
+      .onConflictDoNothing();
+
+    await db
+      .update(pendingPurchasesTable)
+      .set({ status: "approved" })
+      .where(eq(pendingPurchasesTable.sessionId, sessionId));
+
+    // Notify the student
+    const allModules = await db.select().from(modulesTable);
+    const moduleMap = new Map(allModules.map((m) => [m.id, m]));
+    const moduleNames = moduleIds.map((id) => moduleMap.get(id)?.title ?? id);
+    await db.insert(notificationsTable).values({
+      id: crypto.randomUUID(),
+      userId,
+      type: "purchase_approved",
+      title: "Purchase Approved! 🎉",
+      body:
+        moduleNames.length === 1
+          ? `${moduleNames[0]} is now unlocked.`
+          : `${moduleNames.slice(0, -1).join(", ")} and ${moduleNames.at(-1)} are now unlocked.`,
+      moduleId: moduleIds[0] ?? null,
+    });
+
+    // Update Telegram message if it exists
+    const firstRow = pending[0];
+    if (BOT_TOKEN && firstRow.telegramMessageId) {
+      const chatRows = await db
+        .select()
+        .from(pendingPurchasesTable)
+        .where(eq(pendingPurchasesTable.sessionId, sessionId))
+        .limit(1);
+      const chatIdFromDb = chatRows[0]?.telegramMessageId;
+      // We don't store chat_id in the DB — just try the notification channel
+      // The Telegram message already has its buttons; this is best-effort
+    }
+
+    res.json({ ok: true, modules: moduleNames });
+  },
+);
+
+// ── POST /admin/purchases/:sessionId/reject ──────────────────────────────────────
+router.post(
+  "/admin/purchases/:sessionId/reject",
+  requireAdmin,
+  async (req: Request, res: Response): Promise<void> => {
+    const { sessionId } = req.params as { sessionId: string };
+
+    const [row] = await db
+      .select()
+      .from(pendingPurchasesTable)
+      .where(eq(pendingPurchasesTable.sessionId, sessionId))
+      .limit(1);
+
+    if (!row) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+
+    await db
+      .update(pendingPurchasesTable)
+      .set({ status: "rejected" })
+      .where(eq(pendingPurchasesTable.sessionId, sessionId));
+
+    if (row.status === "pending") {
+      await db.insert(notificationsTable).values({
+        id: crypto.randomUUID(),
+        userId: row.userId,
+        type: "purchase_rejected",
+        title: "Purchase Rejected",
+        body: "Your payment receipt was not approved. Please contact support if you have questions.",
+        moduleId: row.moduleId,
+      });
+    }
+
+    res.json({ ok: true });
+  },
 );
 
 // ── Helpers ────────────────────────────────────────────────────────────────────

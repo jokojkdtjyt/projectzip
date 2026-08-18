@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, questionsTable } from "@workspace/db";
+import { requireAdmin } from "../middlewares/requireAdmin";
 import {
   ListQuestionsParams,
   CreateQuestionParams,
@@ -28,7 +29,7 @@ router.get("/modules/:moduleId/lessons/:lessonId/questions", async (req, res): P
   res.json(questions);
 });
 
-router.post("/modules/:moduleId/lessons/:lessonId/questions", async (req, res): Promise<void> => {
+router.post("/modules/:moduleId/lessons/:lessonId/questions", requireAdmin, async (req, res): Promise<void> => {
   const params = CreateQuestionParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -49,7 +50,7 @@ router.post("/modules/:moduleId/lessons/:lessonId/questions", async (req, res): 
   res.status(201).json(question);
 });
 
-router.patch("/modules/:moduleId/lessons/:lessonId/questions/:questionId", async (req, res): Promise<void> => {
+router.patch("/modules/:moduleId/lessons/:lessonId/questions/:questionId", requireAdmin, async (req, res): Promise<void> => {
   const params = UpdateQuestionParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -81,7 +82,7 @@ router.patch("/modules/:moduleId/lessons/:lessonId/questions/:questionId", async
   res.json(question);
 });
 
-router.delete("/modules/:moduleId/lessons/:lessonId/questions/:questionId", async (req, res): Promise<void> => {
+router.delete("/modules/:moduleId/lessons/:lessonId/questions/:questionId", requireAdmin, async (req, res): Promise<void> => {
   const params = DeleteQuestionParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

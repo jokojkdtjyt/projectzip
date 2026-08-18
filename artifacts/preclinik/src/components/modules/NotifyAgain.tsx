@@ -17,11 +17,14 @@ export function NotifyAgain({
   lastRemindedAt,
   createdAt,
   variant = 'compact',
+  remindEndpoint,
 }: {
   sessionId: string;
   lastRemindedAt: string | null;
   createdAt: string;
   variant?: 'compact' | 'full';
+  /** Override the remind API endpoint. Defaults to /api/purchases/remind/:sessionId */
+  remindEndpoint?: string;
 }) {
   const { getToken } = useAuth();
   const queryClient = useQueryClient();
@@ -50,7 +53,7 @@ export function NotifyAgain({
     setSending(true);
     try {
       const token = await getToken();
-      const res = await fetch(`/api/purchases/remind/${sessionId}`, {
+      const res = await fetch(remindEndpoint ?? `/api/purchases/remind/${sessionId}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token ?? ''}` },
       });

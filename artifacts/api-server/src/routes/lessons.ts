@@ -13,6 +13,7 @@ import {
 } from "@workspace/api-zod";
 import { sql } from "drizzle-orm";
 import { isAdminRequest } from "../lib/isAdminRequest";
+import { requireAdmin } from "../middlewares/requireAdmin";
 
 const router: IRouter = Router();
 
@@ -68,7 +69,7 @@ router.get("/modules/:moduleId/lessons", async (req, res): Promise<void> => {
   res.json(result);
 });
 
-router.post("/modules/:moduleId/lessons", async (req, res): Promise<void> => {
+router.post("/modules/:moduleId/lessons", requireAdmin, async (req, res): Promise<void> => {
   const params = CreateLessonParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -137,7 +138,7 @@ router.get("/modules/:moduleId/lessons/:lessonId", async (req, res): Promise<voi
   res.json(await withQuestionCount(lesson));
 });
 
-router.patch("/modules/:moduleId/lessons/:lessonId", async (req, res): Promise<void> => {
+router.patch("/modules/:moduleId/lessons/:lessonId", requireAdmin, async (req, res): Promise<void> => {
   const params = UpdateLessonParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -169,7 +170,7 @@ router.patch("/modules/:moduleId/lessons/:lessonId", async (req, res): Promise<v
   res.json(await withQuestionCount(lesson));
 });
 
-router.delete("/modules/:moduleId/lessons/:lessonId", async (req, res): Promise<void> => {
+router.delete("/modules/:moduleId/lessons/:lessonId", requireAdmin, async (req, res): Promise<void> => {
   const params = DeleteLessonParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

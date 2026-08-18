@@ -221,6 +221,18 @@ export default function Landing() {
             <Play className="w-4 h-4" />
             Get started free
           </Link>
+
+          {/* Footer links */}
+          <div className="mt-8 pt-6 border-t border-[#e8ddd5] flex items-center justify-center gap-4 text-xs text-muted-foreground font-mono">
+            <span>&copy; {new Date().getFullYear()} PreClinik</span>
+            <span className="text-[#e8ddd5]">|</span>
+            <Link
+              href="/terms"
+              className="hover:text-foreground transition-colors"
+            >
+              Terms & Privacy
+            </Link>
+          </div>
         </section>
       </main>
     </div>

@@ -184,7 +184,7 @@ router.get(
     }
 
     // Ownership: admins and free lessons pass unconditionally;
-    // students need a purchase record for paid lessons.
+    // students need a non-expired purchase record for paid lessons.
     let hasAccess = adminAccess || lesson.isFree;
     if (!hasAccess) {
       const [purchase] = await db
@@ -196,7 +196,17 @@ router.get(
             eq(purchasedTable.moduleId, moduleId),
           ),
         );
-      hasAccess = !!purchase;
+      if (!purchase) {
+        // No purchase at all
+        res.status(403).json({ error: "You do not own this module" });
+        return;
+      }
+      if (purchase.expiresAt && purchase.expiresAt <= new Date()) {
+        // Timed access has expired — 410 so client can show "renew" prompt
+        res.status(410).json({ error: "Access expired" });
+        return;
+      }
+      hasAccess = true;
     }
 
     if (!hasAccess) {

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'wouter';
 import { useGetModule, useGetLesson, useListLessons, getExtraHeaders } from '@workspace/api-client-react';
 import { useAuth } from '@clerk/react';
 import { useQuery } from '@tanstack/react-query';
 import { PlayCircle, CheckCircle, LayoutList, ChevronRight, FileText, Lock, Loader2 } from 'lucide-react';
+import { usePostHog } from '@/lib/posthog';
 
 /** Fetches a signed Bunny embed URL for a lesson the user owns. */
 function useLessonPlayUrl(moduleId: string, lessonId: string, enabled: boolean) {
@@ -82,6 +83,10 @@ export default function LessonPlayer() {
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'Video content' | 'Q-bank'>('Video content');
 
+  const { capture } = usePostHog();
+  const videoRef = useRef<HTMLIFrameElement>(null);
+  const lastVideoEventRef = useRef<string | null>(null);
+
   const { data: module } = useGetModule(moduleId, { query: { enabled: !!moduleId } });
   const { data: lesson, isLoading } = useGetLesson(moduleId, lessonId, { query: { enabled: !!moduleId && !!lessonId } });
   const { data: lessons } = useListLessons(moduleId, { query: { enabled: !!moduleId } });
@@ -96,6 +101,45 @@ export default function LessonPlayer() {
     lessonId,
     !!moduleId && !!lessonId && !!isSignedIn && hasBunny,
   );
+
+  // ── Video event tracking via postMessage (Bunny Stream) ──
+  useEffect(() => {
+    if (!playData || !lesson) return;
+
+    const onMessage = (e: MessageEvent) => {
+      // Bunny Stream iframe sends { event: 'player-play', properties: { ... } }
+      const data = e.data;
+      if (!data || typeof data !== 'object') return;
+
+      // Bunny Stream events
+      if (data.event === 'player-play') {
+        const wasPaused = lastVideoEventRef.current === 'player-pause';
+        capture(wasPaused ? 'video_resumed' : 'video_started', {
+          videoId: lesson.id,
+          moduleId,
+          lessonTitle: lesson.title,
+        });
+        lastVideoEventRef.current = 'player-play';
+      } else if (data.event === 'player-pause') {
+        capture('video_paused', {
+          videoId: lesson.id,
+          moduleId,
+          lessonTitle: lesson.title,
+        });
+        lastVideoEventRef.current = 'player-pause';
+      } else if (data.event === 'player-ended') {
+        capture('video_completed', {
+          videoId: lesson.id,
+          moduleId,
+          lessonTitle: lesson.title,
+        });
+        lastVideoEventRef.current = 'player-ended';
+      }
+    };
+
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [playData, lesson, moduleId, capture]);
 
   if (isLoading || !lesson || !module) {
     return <div className="animate-pulse h-[70vh] bg-white rounded-[22px] border border-border w-full max-w-6xl mx-auto mt-8"></div>;
@@ -146,19 +190,30 @@ export default function LessonPlayer() {
       </div>
     );
   } else if (playError || !playData) {
-    // Could be a 403 (not owned) or network error
+    // 403 = not owned, 410 = access expired, other = network error
     const is403 = playError instanceof Error && playError.message === '403';
+    const is410 = playError instanceof Error && playError.message === '410';
     videoArea = (
       <div className="w-full aspect-video bg-gradient-to-br from-[#241e1b] to-[#120f0e] rounded-[22px] overflow-hidden relative shadow-2xl border border-[#3a3330] flex flex-col items-center justify-center text-center p-8">
         <Lock className="w-14 h-14 text-white/20 mb-4" />
         <h3 className="text-white font-serif text-xl font-bold mb-2">
-          {is403 ? 'Module not owned' : 'Video unavailable'}
+          {is410 ? 'Access expired' : is403 ? 'Module not owned' : 'Video unavailable'}
         </h3>
-        <p className="text-white/50 text-sm font-mono max-w-xs">
-          {is403
+        <p className="text-white/50 text-sm font-mono max-w-xs mb-4">
+          {is410
+            ? 'Your timed access to this module has expired.'
+            : is403
             ? 'Purchase this module to unlock all lessons and videos.'
             : 'There was a problem loading this video. Try refreshing the page.'}
         </p>
+        {is410 && (
+          <Link
+            href={`/modules/${moduleId}`}
+            className="bg-primary hover:bg-primary/90 text-white font-bold px-5 py-2.5 rounded-xl text-sm transition-colors"
+          >
+            Renew Access →
+          </Link>
+        )}
       </div>
     );
   } else {
@@ -220,7 +275,15 @@ export default function LessonPlayer() {
                   <FileText className="w-12 h-12 text-muted-foreground opacity-20 mx-auto mb-4" />
                   <h3 className="font-serif text-xl font-bold mb-2">Lesson Quiz</h3>
                   <p className="text-muted-foreground mb-6">Test your knowledge on {lesson.title}</p>
-                  <button className="bg-primary text-white font-bold px-6 py-3 rounded-xl shadow-md hover:bg-primary/90 transition-colors">
+                  <button
+                    onClick={() => capture('q_bank_quiz_started', {
+                      lessonId: lesson.id,
+                      moduleId,
+                      lessonTitle: lesson.title,
+                      questionCount: lesson.questionCount || 0,
+                    })}
+                    className="bg-primary text-white font-bold px-6 py-3 rounded-xl shadow-md hover:bg-primary/90 transition-colors"
+                  >
                     Start Quiz ({lesson.questionCount || 0} Questions)
                   </button>
                 </div>

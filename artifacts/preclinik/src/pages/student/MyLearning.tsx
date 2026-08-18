@@ -3,13 +3,20 @@ import { useListPurchased, useListModules } from '@workspace/api-client-react';
 import { ModuleCard } from '@/components/modules/ModuleCard';
 import { Library } from 'lucide-react';
 import { Link } from 'wouter';
+import { usePurchasedDetails } from '@/hooks/usePurchasedDetails';
 
 export default function MyLearning() {
   const { data: allModules, isLoading: modulesLoading } = useListModules({ published: true });
   const { data: purchasedIds, isLoading: purchasedLoading } = useListPurchased();
+  const { data: purchasedDetails } = usePurchasedDetails();
 
-  // Only modules the student has paid for — no browsing, no prices.
-  const modules = allModules?.filter(m => purchasedIds?.includes(m.id)) || [];
+  // Show all modules the student has ever purchased (including expired),
+  // so they can see "Expired" status and renew.
+  const ownedIds = new Set([
+    ...(purchasedIds ?? []),
+    ...(purchasedDetails?.map(d => d.moduleId) ?? []),
+  ]);
+  const modules = allModules?.filter(m => ownedIds.has(m.id)) || [];
   const isLoading = modulesLoading || purchasedLoading;
 
   return (
@@ -28,7 +35,6 @@ export default function MyLearning() {
       ) : modules.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {modules.map(module => (
-            // library variant: no price, no cart button — just "Continue Learning"
             <ModuleCard key={module.id} module={module} variant="library" />
           ))}
         </div>

@@ -13,10 +13,12 @@ import {
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@clerk/react';
-import { ShoppingCart, Check, PlayCircle, Zap } from 'lucide-react';
+import { ShoppingCart, Check, PlayCircle, Zap, Clock, RefreshCw, MessageSquare } from 'lucide-react';
 import { usePendingModules } from '@/hooks/usePendingModules';
+import { useRejectedModules } from '@/hooks/useRejectedModules';
 import { NotifyAgain } from './NotifyAgain';
 import { getExtraHeaders } from '@workspace/api-client-react';
+import { usePurchasedDetails, formatExpiry, tierLabel } from '@/hooks/usePurchasedDetails';
 
 interface ModuleCardProps {
   module: Module;
@@ -36,8 +38,13 @@ export function ModuleCard({ module, variant = 'store' }: ModuleCardProps) {
   const { data: cart } = useGetCart({ query: { enabled: !isLibrary } });
   const { data: purchasedList } = useListPurchased();
   const { data: pendingSessions } = usePendingModules();
+  const { data: rejectedModules } = useRejectedModules();
+  const { data: purchasedDetails } = usePurchasedDetails();
 
-  // In library mode every card is by definition owned.
+  // Purchase detail for this module (tier + expiry)
+  const purchaseDetail = purchasedDetails?.find(d => d.moduleId === module.id) ?? null;
+
+  // In library mode every card is by definition owned (even expired — shown as "Expired").
   const isPurchased = isLibrary || (purchasedList?.includes(module.id) ?? false);
   const inCart = !isLibrary && (cart?.items.some(i => i.moduleId === module.id) ?? false);
 
@@ -47,6 +54,7 @@ export function ModuleCard({ module, variant = 'store' }: ModuleCardProps) {
     [pendingSessions, module.id],
   );
   const isPending = !isPurchased && !isLibrary && pendingSession !== null;
+  const isRejected = !isPurchased && !isLibrary && !isPending && (rejectedModules?.includes(module.id) ?? false);
 
   const addToCart = useAddToCart();
   const removeFromCart = useRemoveFromCart();
@@ -153,6 +161,12 @@ export function ModuleCard({ module, variant = 'store' }: ModuleCardProps) {
               ⏳ Pending Review
             </span>
           )}
+          {/* Rejected badge */}
+          {isRejected && (
+            <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-bold uppercase tracking-wider font-mono border border-red-200">
+              ❌ Payment Not Verified
+            </span>
+          )}
           {/* Free badge */}
           {isFree && (
             <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-[10px] font-bold uppercase tracking-wider font-mono border border-green-200">
@@ -170,8 +184,18 @@ export function ModuleCard({ module, variant = 'store' }: ModuleCardProps) {
             <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden mb-2">
               <div className="bg-green-600 h-full rounded-full" style={{ width: '0%' }} />
             </div>
-            <div className="text-xs text-muted-foreground font-mono">
-              0% complete · {module.duration} · {module.students} students
+            <div className="text-xs text-muted-foreground font-mono flex items-center gap-2">
+              <span>0% complete · {module.duration}</span>
+              {purchaseDetail && (() => {
+                const expiryLabel = formatExpiry(purchaseDetail.expiresAt, purchaseDetail.isExpired);
+                if (!expiryLabel) return null; // lifetime — no expiry label
+                return (
+                  <span className={`flex items-center gap-1 font-bold ${purchaseDetail.isExpired ? 'text-red-600' : 'text-amber-600'}`}>
+                    <Clock className="w-3 h-3" />
+                    {expiryLabel}
+                  </span>
+                );
+              })()}
             </div>
           </div>
         ) : (
@@ -184,11 +208,30 @@ export function ModuleCard({ module, variant = 'store' }: ModuleCardProps) {
         <div className="flex items-center justify-between mt-auto pt-4 border-t border-border">
           {/* Left slot */}
           {isLibrary ? (
-            <span />
+            purchaseDetail?.isExpired ? (
+              <span className="text-red-600 bg-red-50 px-3 py-1 rounded-full text-xs font-bold font-mono border border-red-200 flex items-center gap-1">
+                <RefreshCw className="w-3 h-3" /> Expired
+              </span>
+            ) : purchaseDetail?.expiresAt ? (
+              <span className="text-amber-700 bg-amber-50 px-3 py-1 rounded-full text-xs font-bold font-mono border border-amber-200 flex items-center gap-1">
+                <Clock className="w-3 h-3" /> {tierLabel(purchaseDetail.tier)}
+              </span>
+            ) : (
+              <span className="text-green-700 bg-green-50 px-3 py-1 rounded-full text-xs font-bold font-mono border border-green-200">
+                ∞ Lifetime
+              </span>
+            )
           ) : isPurchased ? (
             <span className="text-green-700 bg-green-50 px-3 py-1 rounded-full text-xs font-bold font-mono border border-green-200">
               OWNED
             </span>
+          ) : isRejected ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); setLocation(`/modules/${module.id}`); }}
+              className="flex items-center gap-1 text-red-700 bg-red-50 px-3 py-1.5 rounded-full text-[11px] font-bold font-mono border border-red-200 hover:bg-red-100 transition-colors"
+            >
+              <MessageSquare className="w-3 h-3" /> Contact Support
+            </button>
           ) : isPending ? (
             <NotifyAgain
               sessionId={pendingSession!.sessionId}
@@ -216,8 +259,8 @@ export function ModuleCard({ module, variant = 'store' }: ModuleCardProps) {
               </button>
             ) : (
               <>
-                {/* Cart toggle — store mode, not yet owned, not pending */}
-                {!isLibrary && !isPurchased && !isPending && (
+                {/* Cart toggle — store mode, not yet owned, not pending, not rejected */}
+                {!isLibrary && !isPurchased && !isPending && !isRejected && (
                   <button
                     onClick={handleCartToggle}
                     disabled={addToCart.isPending || removeFromCart.isPending}

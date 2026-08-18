@@ -1,12 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useParams, Link } from 'wouter';
 import { useGetModule, useListLessons, useListPurchased, useAddToCart, useGetCart, getGetCartQueryKey, getListPurchasedQueryKey, getExtraHeaders } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@clerk/react';
 import { toast } from 'sonner';
-import { PlayCircle, CheckCircle, Lock, BookOpen, Clock, Users, Star, ShoppingCart, Check, Zap } from 'lucide-react';
+import { PlayCircle, CheckCircle, Lock, BookOpen, Clock, Users, Star, ShoppingCart, Check, Zap, Upload, MessageSquare, ImageIcon } from 'lucide-react';
 import { usePendingModules } from '@/hooks/usePendingModules';
+import { useRejectedModules } from '@/hooks/useRejectedModules';
 import { NotifyAgain } from '@/components/modules/NotifyAgain';
+import { usePostHog } from '@/lib/posthog';
 
 export default function ModuleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -19,7 +21,38 @@ export default function ModuleDetail() {
   const { data: purchasedList } = useListPurchased();
   const { data: cart } = useGetCart();
   const { data: pendingSessions } = usePendingModules();
+  const { data: rejectedModules } = useRejectedModules();
   const addToCart = useAddToCart();
+
+  const { capture } = usePostHog();
+
+  // ── Track module viewed ──
+  useEffect(() => {
+    if (module) {
+      capture('module_viewed', {
+        moduleId: module.id,
+        title: module.title,
+        category: module.category,
+        isFree: module.isFree,
+      });
+    }
+  }, [module]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Contact support form state ──
+  const [showSupportForm, setShowSupportForm] = useState(false);
+  const [supportMessage, setSupportMessage] = useState('');
+  const [supportFile, setSupportFile] = useState<File | null>(null);
+  const [supportPreview, setSupportPreview] = useState<string | null>(null);
+  const [isSubmittingSupport, setIsSubmittingSupport] = useState(false);
+  const supportFileRef = useRef<HTMLInputElement>(null);
+
+  // ── Active dispute — tracks a just-submitted dispute locally ──
+  const [activeDispute, setActiveDispute] = useState<{
+    disputeId: string;
+    createdAt: string;
+    /** Tracked locally after first remind */
+    lastRemindedAt: string | null;
+  } | null>(null);
 
   const inCart = cart?.items.some(i => i.moduleId === id) ?? false;
   const isPurchased = purchasedList?.includes(id);
@@ -29,6 +62,59 @@ export default function ModuleDetail() {
     [pendingSessions, id],
   );
   const isPending = !isPurchased && pendingSession !== null;
+  const isRejected = !isPurchased && !isPending && (rejectedModules?.includes(id ?? '') ?? false);
+
+  const handleSupportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setSupportFile(f);
+    if (f) {
+      const reader = new FileReader();
+      reader.onloadend = () => setSupportPreview(reader.result as string);
+      reader.readAsDataURL(f);
+    } else {
+      setSupportPreview(null);
+    }
+  };
+
+  const handleSubmitSupport = async () => {
+    if (!supportMessage.trim()) return;
+    setIsSubmittingSupport(true);
+    try {
+      const token = await getToken();
+      const formData = new FormData();
+      formData.append('moduleId', id!);
+      formData.append('message', supportMessage.trim());
+      if (supportFile) {
+        formData.append('receipt', supportFile);
+      }
+
+      const res = await fetch('/api/purchases/disputes/submit', {
+        method: 'POST',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...getExtraHeaders(),
+        },
+        body: formData,
+      });
+
+      const result = (await res.json().catch(() => ({}))) as Record<string, string>;
+      if (!res.ok) {
+        throw new Error(result.error ?? `Server error (${res.status})`);
+      }
+      setActiveDispute({ disputeId: result.disputeId, createdAt: result.createdAt, lastRemindedAt: null });
+      toast.success('Support request sent — we will review it shortly.');
+      setShowSupportForm(false);
+      setSupportMessage('');
+      setSupportFile(null);
+      setSupportPreview(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong';
+      toast.error(msg);
+      console.error('[Dispute] submit error:', err);
+    } finally {
+      setIsSubmittingSupport(false);
+    }
+  };
 
   const handleFreeEnroll = async () => {
     try {
@@ -54,12 +140,38 @@ export default function ModuleDetail() {
       {
         onSuccess: (data) => {
           queryClient.setQueryData(getGetCartQueryKey(), data);
-          toast.success(`${module!.title} added to cart`);
+          capture('added_to_cart', {
+            moduleId: module!.id,
+            title: module!.title,
+            category: module!.category,
+            price: module!.price,
+          });
+          toast.success(`${module!.title} added to cart — choose your access period at checkout`);
         },
         onError: () => toast.error('Could not add to cart. Please try again.'),
       },
     );
   };
+
+  // Compute available tiers from module data
+  const tierOptions = (() => {
+    if (!module) return [];
+    const candidates: { key: string; label: string; price: number | null | undefined }[] = [
+      { key: '3month', label: '3-Month Access', price: module.price3Month },
+      { key: '1year', label: '1-Year Access', price: module.price1Year },
+      { key: 'lifetime', label: 'Lifetime Access', price: module.priceLifetime },
+    ];
+    const filtered = candidates.filter(
+      (t): t is { key: string; label: string; price: number } =>
+        typeof t.price === 'number' && t.price > 0,
+    );
+    // Fallback to legacy flat price for backward compat
+    if (filtered.length === 0 && module.price > 0) {
+      filtered.push({ key: 'lifetime', label: 'Lifetime Access', price: module.price });
+    }
+    return filtered;
+  })();
+  const lowestPrice = tierOptions[0]?.price ?? module?.price ?? 0;
 
   if (moduleLoading || !module) {
     return <div className="animate-pulse h-[60vh] bg-white rounded-[22px] border border-border"></div>;
@@ -100,7 +212,7 @@ export default function ModuleDetail() {
         {!isPurchased && (
           <div className="bg-white p-8 md:w-80 flex flex-col justify-center shrink-0 border-l border-border relative z-10">
             {isPending ? (
-              /* ── Pending state ── */
+              /* ── Pending purchase state ── */
               <div className="flex flex-col items-center text-center gap-4">
                 <div className="text-3xl">⏳</div>
                 <div>
@@ -117,6 +229,130 @@ export default function ModuleDetail() {
                   createdAt={pendingSession!.createdAt}
                   variant="full"
                 />
+              </div>
+            ) : activeDispute ? (
+              /* ── Pending dispute state (same visual as pending purchase) ── */
+              <div className="flex flex-col items-center text-center gap-4">
+                <div className="text-3xl">⏳</div>
+                <div>
+                  <div className="text-sm font-bold text-amber-700 font-mono uppercase tracking-widest mb-1">
+                    Pending Review
+                  </div>
+                  <p className="text-xs text-muted-foreground font-mono leading-relaxed">
+                    Your support request has been submitted. The admin will review and respond shortly.
+                  </p>
+                </div>
+                <NotifyAgain
+                  sessionId={activeDispute.disputeId}
+                  lastRemindedAt={activeDispute.lastRemindedAt}
+                  createdAt={activeDispute.createdAt}
+                  remindEndpoint={`/api/purchases/disputes/remind/${activeDispute.disputeId}`}
+                  variant="full"
+                />
+              </div>
+            ) : isRejected && !showSupportForm ? (
+              /* ── Rejected state — Add to Cart + Contact Support ── */
+              <div className="flex flex-col items-center text-center gap-4">
+                <div className="text-3xl">❌</div>
+                <div>
+                  <div className="text-sm font-bold text-red-700 font-mono uppercase tracking-widest mb-1">
+                    Payment Could Not Be Verified
+                  </div>
+                  <p className="text-xs text-muted-foreground font-mono leading-relaxed">
+                    Your previous payment receipt could not be approved. You can try purchasing again or contact support for help.
+                  </p>
+                </div>
+                <button
+                  onClick={handleAddToCart}
+                  disabled={addToCart.isPending || inCart}
+                  className={`w-full font-bold py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 ${
+                    inCart
+                      ? 'bg-green-600 text-white shadow-green-600/20 cursor-default'
+                      : 'bg-primary hover:bg-primary/90 text-white shadow-primary/20'
+                  }`}
+                >
+                  {inCart ? (
+                    <><Check className="w-5 h-5" /> In Cart</>
+                  ) : addToCart.isPending ? (
+                    'Adding…'
+                  ) : (
+                    <><ShoppingCart className="w-5 h-5" /> Add to Cart</>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowSupportForm(true)}
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors font-mono underline underline-offset-2"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 inline mr-1" />
+                  Contact Support
+                </button>
+              </div>
+            ) : isRejected && showSupportForm ? (
+              /* ── Contact Support form ── */
+              <div className="flex flex-col text-left gap-4">
+                <div>
+                  <div className="text-sm font-bold text-red-700 font-mono uppercase tracking-widest mb-1">
+                    Contact Support
+                  </div>
+                  <p className="text-xs text-muted-foreground font-mono leading-relaxed">
+                    Explain what went wrong and attach a corrected receipt if you have one.
+                  </p>
+                </div>
+
+                <textarea
+                  value={supportMessage}
+                  onChange={(e) => setSupportMessage(e.target.value)}
+                  placeholder="Tell us what happened..."
+                  rows={3}
+                  className="w-full text-sm rounded-xl border border-border bg-secondary/30 px-3 py-2.5 font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                />
+
+                {/* Optional file upload */}
+                <div
+                  onClick={() => supportFileRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl transition-colors cursor-pointer flex flex-col items-center justify-center gap-1.5 min-h-[100px] ${
+                    supportPreview ? 'border-primary/40 bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-secondary/50'
+                  }`}
+                >
+                  {supportPreview ? (
+                    <img src={supportPreview} alt="New receipt" className="max-h-20 w-full object-contain rounded-lg px-2" />
+                  ) : (
+                    <>
+                      <ImageIcon className="w-6 h-6 text-muted-foreground opacity-40" />
+                      <p className="text-[11px] text-muted-foreground font-mono">Optional: attach a new receipt</p>
+                    </>
+                  )}
+                  <input
+                    ref={supportFileRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleSupportFileChange}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setShowSupportForm(false); setSupportMessage(''); setSupportFile(null); setSupportPreview(null); }}
+                    className="flex-1 text-sm text-muted-foreground hover:text-foreground transition-colors font-mono py-3 rounded-xl border border-border"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSubmitSupport}
+                    disabled={!supportMessage.trim() || isSubmittingSupport}
+                    className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2"
+                  >
+                    {isSubmittingSupport ? (
+                      <span className="font-mono text-sm">Sending...</span>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        Send
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             ) : module.isFree ? (
               /* ── Free module state ── */
@@ -138,16 +374,37 @@ export default function ModuleDetail() {
                 </button>
               </div>
             ) : (
-              /* ── Normal enroll panel ── */
+              /* ── Normal enroll panel — tiered pricing ── */
               <>
-                <div className="text-center mb-6">
-                  <div className="text-xs text-muted-foreground font-mono font-bold uppercase tracking-widest mb-2">Enroll Now</div>
-                  <div className="text-4xl font-serif font-bold text-foreground">{module.price} DZD</div>
+                <div className="text-center mb-4">
+                  <div className="text-xs text-muted-foreground font-mono font-bold uppercase tracking-widest mb-1">Enroll Now</div>
+                  {tierOptions.length > 1 ? (
+                    <div className="text-sm text-muted-foreground font-mono">
+                      from <span className="text-2xl font-serif font-bold text-foreground">{lowestPrice.toLocaleString()}</span> DZD
+                    </div>
+                  ) : (
+                    <div className="text-3xl font-serif font-bold text-foreground">
+                      {lowestPrice.toLocaleString()} DZD
+                    </div>
+                  )}
                 </div>
+
+                {/* Tier options */}
+                {tierOptions.length > 1 && (
+                  <div className="space-y-2 mb-4">
+                    {tierOptions.map(tier => (
+                      <div key={tier.key} className="flex items-center justify-between px-3 py-2 rounded-lg border border-border bg-secondary/30 text-sm">
+                        <span className="font-bold font-mono text-xs uppercase tracking-widest text-foreground">{tier.label}</span>
+                        <span className="font-bold font-mono text-primary">{tier.price.toLocaleString()} DZD</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <button
                   onClick={handleAddToCart}
                   disabled={addToCart.isPending || inCart}
-                  className={`w-full font-bold py-4 rounded-xl transition-all shadow-lg mb-4 flex items-center justify-center gap-2 disabled:opacity-75 ${
+                  className={`w-full font-bold py-4 rounded-xl transition-all shadow-lg mb-3 flex items-center justify-center gap-2 disabled:opacity-75 ${
                     inCart
                       ? 'bg-green-600 text-white shadow-green-600/20 cursor-default'
                       : 'bg-primary hover:bg-primary/90 text-white shadow-primary/20'
@@ -162,7 +419,7 @@ export default function ModuleDetail() {
                   )}
                 </button>
                 <p className="text-xs text-muted-foreground text-center font-mono">
-                  Full lifetime access. 14-day money-back guarantee.
+                  {tierOptions.length > 1 ? 'Choose your access period at checkout.' : 'Full lifetime access.'}
                 </p>
               </>
             )}

@@ -13,6 +13,10 @@ export function requireAuth(
   const auth = getAuth(req);
   const userId = auth?.userId;
   if (!userId) {
+    const authHeader = req.headers.authorization;
+    console.log(
+      `[requireAuth] 401 — method=${req.method} path=${req.path} | auth-header=${authHeader ? "present" : "MISSING"} | sessionId=${auth?.sessionId ?? "N/A"}`,
+    );
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
