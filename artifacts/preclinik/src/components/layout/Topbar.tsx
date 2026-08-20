@@ -274,6 +274,12 @@ export function Topbar({ role, setRole }: TopbarProps) {
               >
                 My learning
               </Link>
+              <Link
+                href="/qflow"
+                className="px-3 py-1.5 rounded-full text-sm font-bold text-primary hover:bg-primary/10 transition-colors"
+              >
+                QFLOW
+              </Link>
             </nav>
           </Show>
 

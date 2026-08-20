@@ -44,6 +44,7 @@ import AdminPurchaseRequests from "@/pages/admin/AdminPurchaseRequests";
 
 // Auth + Landing + Legal pages
 import Landing from "@/pages/Landing";
+import QFlow from "@/pages/QFlow";
 import Terms from "@/pages/Terms";
 import NotFound from "@/pages/not-found";
 
@@ -326,6 +327,9 @@ function AppRoutes() {
       {/* Clerk auth pages — MUST use /*? wildcard */}
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
+
+      {/* Public: QFLOW question-bank landing page */}
+      <Route path="/qflow" component={QFlow} />
 
       {/* Public: module catalog (browsing is free) */}
       <Route path="/catalog">

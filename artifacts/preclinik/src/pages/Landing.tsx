@@ -71,6 +71,12 @@ export default function Landing() {
             Browse catalog
           </Link>
           <Link
+            href="/qflow"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#f4e7d0] text-[#8a5a17] text-xs font-bold tracking-wide hover:bg-[#ecd9b8] transition-colors"
+          >
+            QFLOW <ArrowRight className="w-3 h-3" />
+          </Link>
+          <Link
             href="/sign-in"
             className="text-sm font-medium text-foreground hover:text-primary transition-colors"
           >
@@ -155,6 +161,29 @@ export default function Landing() {
               Sign in
             </Link>
           </p>
+
+          <Link
+            href="/qflow"
+            className="group mt-10 mx-auto flex w-full max-w-xl items-center justify-between gap-5 rounded-[22px] border border-[#dfc58f] bg-[#fff8e9] px-5 py-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <span className="flex items-center gap-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#b9852e] text-white shadow-sm">
+                <Brain className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#9b6c23]">
+                  New from PreClinik
+                </span>
+                <span className="mt-1 block font-bold text-foreground">
+                  Meet QFLOW — your medical Q-bank
+                </span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Practice smarter with exam-style questions and instant explanations.
+                </span>
+              </span>
+            </span>
+            <ArrowRight className="h-5 w-5 shrink-0 text-[#b9852e] transition-transform group-hover:translate-x-1" />
+          </Link>
         </section>
 
         {/* ── Module highlights ── */}
