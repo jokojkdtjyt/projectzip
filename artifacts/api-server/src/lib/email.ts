@@ -1,13 +1,8 @@
-import { Resend } from "resend";
+import { ReplitConnectors } from "@replit/connectors-sdk";
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-
-let resend: Resend | null = null;
-if (RESEND_API_KEY) {
-  resend = new Resend(RESEND_API_KEY);
-} else {
-  console.warn("[Email] RESEND_API_KEY not set — emails disabled.");
-}
+// Resend is connected through Replit so the credential stays managed by the
+// workspace instead of living in an app environment variable.
+const connectors = new ReplitConnectors();
 
 // Using Resend's default test sender until the domain is verified.
 // Swap to "PreClinik <notifications@preclinik.com>" once the domain is set up.
@@ -83,21 +78,29 @@ type EmailPayload = {
 };
 
 async function sendEmail({ to, subject, title, bodyHtml }: EmailPayload): Promise<void> {
-  if (!resend) {
-    console.warn(`[Email] Skipping "${subject}" to ${to} — Resend not configured.`);
-    return;
-  }
-
-  const { error } = await resend.emails.send({
-    from: FROM,
-    to,
-    subject,
-    html: htmlLayout(title, bodyHtml),
+  const response = await connectors.proxy("resend", "/emails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: FROM,
+      to: [to],
+      subject,
+      html: htmlLayout(title, bodyHtml),
+    }),
   });
 
-  if (error) {
-    console.error(`[Email] Failed to send "${subject}" to ${to}:`, error);
+  const result = (await response.json()) as {
+    id?: string;
+    error?: { message?: string };
+  };
+
+  if (!response.ok || result.error) {
+    const message = result.error?.message ?? `Resend returned HTTP ${response.status}`;
+    console.error(`[Email] Failed to send "${subject}" to ${to}: ${message}`);
+    throw new Error(message);
   }
+
+  console.info(`[Email] Sent "${subject}" to ${to} (${result.id ?? "accepted"})`);
 }
 
 // ── Template: Purchase Approved ─────────────────────────────────────────────
