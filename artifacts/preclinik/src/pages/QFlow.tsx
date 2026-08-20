@@ -33,7 +33,7 @@ const benefits = [
 
 const sampleQuestions = [
   { label: "Anatomy", count: "420 questions", tone: "bg-[#f6e7e9] text-primary" },
-  { label: "Physiology", count: "680 questions", tone: "bg-[#f4e9d6] text-[#95651d]" },
+  { label: "Physiology", count: "680 questions", tone: "bg-[#f7f3ec] text-primary" },
   { label: "Biochemistry", count: "350 questions", tone: "bg-[#e7f1ec] text-[#397458]" },
 ];
 
@@ -43,7 +43,7 @@ export default function QFlow() {
       <header className="relative z-10 border-b border-white/10 bg-[#161218]/90 px-6 backdrop-blur-md">
         <div className="mx-auto flex h-[72px] max-w-6xl items-center justify-between">
           <Link href="/" className="group flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#c9953e] to-primary font-serif text-xl font-bold text-white shadow-lg shadow-[#c9953e]/10 transition-transform group-hover:scale-105">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#f7f3ec] to-primary font-serif text-xl font-bold text-primary shadow-lg shadow-white/10 transition-transform group-hover:scale-105">
               P
             </div>
             <div className="hidden sm:block">
@@ -62,7 +62,7 @@ export default function QFlow() {
             </Link>
             <Link
               href="/sign-up"
-              className="rounded-xl bg-[#c9953e] px-4 py-2 text-sm font-bold text-[#211812] transition-colors hover:bg-[#ddb15d]"
+                className="rounded-xl bg-[#f7f3ec] px-4 py-2 text-sm font-bold text-[#211218] transition-colors hover:bg-white"
             >
               Get started
             </Link>
@@ -73,16 +73,16 @@ export default function QFlow() {
       <main>
         <section className="relative isolate">
           <div className="pointer-events-none absolute -left-40 -top-40 h-[520px] w-[520px] rounded-full bg-primary/20 blur-3xl" />
-          <div className="pointer-events-none absolute -right-40 top-24 h-[480px] w-[480px] rounded-full bg-[#c9953e]/15 blur-3xl" />
+          <div className="pointer-events-none absolute -right-40 top-24 h-[480px] w-[480px] rounded-full bg-[#f7f3ec]/10 blur-3xl" />
           <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-6 pb-24 pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20 lg:pb-32 lg:pt-28">
             <div>
-              <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#c9953e]/30 bg-[#c9953e]/10 px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#e0b869]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#e0b869]" />
+              <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#f7f3ec]/30 bg-[#f7f3ec]/10 px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[#f7f3ec]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#f7f3ec]" />
                 The PreClinik question bank
               </div>
               <h1 className="max-w-2xl font-serif text-5xl font-bold leading-[1.02] tracking-tight text-white sm:text-7xl">
                 Make every question{" "}
-                <span className="text-[#d4a653]">move you forward.</span>
+                <span className="text-[#f7f3ec]">move you forward.</span>
               </h1>
               <p className="mt-7 max-w-xl text-lg leading-relaxed text-white/65">
                 QFLOW is the focused medical Q-bank for students who want less
@@ -92,7 +92,7 @@ export default function QFlow() {
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/sign-up"
-                  className="group inline-flex items-center justify-center gap-2 rounded-xl bg-[#c9953e] px-6 py-3.5 font-bold text-[#211812] shadow-lg shadow-[#c9953e]/10 transition-all hover:-translate-y-0.5 hover:bg-[#ddb15d]"
+                  className="group inline-flex items-center justify-center gap-2 rounded-xl bg-[#f7f3ec] px-6 py-3.5 font-bold text-[#211218] shadow-lg shadow-white/10 transition-all hover:-translate-y-0.5 hover:bg-white"
                 >
                   Start practicing free
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -105,20 +105,20 @@ export default function QFlow() {
                 </Link>
               </div>
               <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2 font-mono text-xs text-white/45">
-                <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#d4a653]" /> Five-option questions</span>
-                <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#d4a653]" /> Detailed explanations</span>
+                <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#f7f3ec]" /> Five-option questions</span>
+                <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#f7f3ec]" /> Detailed explanations</span>
               </div>
             </div>
 
             <div className="relative mx-auto w-full max-w-md">
-              <div className="absolute -inset-5 rounded-[32px] border border-[#c9953e]/10 bg-[#c9953e]/5 rotate-3" />
+              <div className="absolute -inset-5 rounded-[32px] border border-[#f7f3ec]/10 bg-[#f7f3ec]/5 rotate-3" />
               <div className="relative rounded-[28px] border border-white/10 bg-[#211b23] p-5 shadow-2xl shadow-black/30">
                 <div className="flex items-center justify-between border-b border-white/10 pb-4">
                   <div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#d4a653]">QFLOW / DAILY MIX</div>
+                  <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#f7f3ec]">QFLOW / DAILY MIX</div>
                     <div className="mt-1 font-serif text-xl font-bold">Keep your flow</div>
                   </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#c9953e]/15 text-[#d4a653]">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f7f3ec]/10 text-[#f7f3ec]">
                     <Flame className="h-5 w-5" />
                   </div>
                 </div>
@@ -132,8 +132,8 @@ export default function QFlow() {
                   </p>
                   <div className="mt-5 space-y-2">
                     {["The glomerular capillaries", "The loop of Henle", "The collecting duct", "The renal pelvis"].map((answer, index) => (
-                      <div key={answer} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm ${index === 0 ? "border-[#c9953e]/50 bg-[#c9953e]/10 text-[#f1d18d]" : "border-white/8 text-white/60"}`}>
-                        <span className={`flex h-6 w-6 items-center justify-center rounded-lg font-mono text-xs ${index === 0 ? "bg-[#c9953e] text-[#211812]" : "bg-white/8 text-white/45"}`}>
+                      <div key={answer} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm ${index === 0 ? "border-[#f7f3ec]/50 bg-[#f7f3ec]/10 text-[#f7f3ec]" : "border-white/8 text-white/60"}`}>
+                        <span className={`flex h-6 w-6 items-center justify-center rounded-lg font-mono text-xs ${index === 0 ? "bg-[#f7f3ec] text-[#211218]" : "bg-white/8 text-white/45"}`}>
                           {String.fromCharCode(65 + index)}
                         </span>
                         {answer}
@@ -143,7 +143,7 @@ export default function QFlow() {
                 </div>
                 <div className="mt-4 flex items-center justify-between text-xs text-white/45">
                   <span className="flex items-center gap-1.5"><Layers3 className="h-3.5 w-3.5" /> Renal physiology</span>
-                  <span className="flex items-center gap-1 text-[#d4a653]">Answer saved <Check className="h-3 w-3" /></span>
+                  <span className="flex items-center gap-1 text-[#f7f3ec]">Answer saved <Check className="h-3 w-3" /></span>
                 </div>
               </div>
             </div>
@@ -163,7 +163,7 @@ export default function QFlow() {
 
         <section className="mx-auto max-w-6xl px-6 py-24">
           <div className="max-w-2xl">
-            <div className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#d4a653]">Built for the long game</div>
+              <div className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#f7f3ec]">Built for the long game</div>
             <h2 className="mt-4 font-serif text-4xl font-bold leading-tight sm:text-5xl">A better rhythm for medical revision.</h2>
             <p className="mt-5 text-lg leading-relaxed text-white/55">
               QFLOW turns scattered revision into a clear daily practice. Every session gives you feedback you can use next time.
@@ -174,7 +174,7 @@ export default function QFlow() {
               const Icon = benefit.icon;
               return (
                 <div key={benefit.title} className="rounded-[22px] border border-white/10 bg-white/[0.03] p-6">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#c9953e]/15 text-[#d4a653]">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#f7f3ec]/10 text-[#f7f3ec]">
                     <Icon className="h-5 w-5" />
                   </div>
                   <h3 className="mt-5 font-bold">{benefit.title}</h3>
@@ -185,16 +185,16 @@ export default function QFlow() {
           </div>
         </section>
 
-        <section className="border-t border-white/10 bg-[#c9953e] px-6 py-16 text-center text-[#211812]">
+        <section className="border-t border-white/10 bg-[#f7f3ec] px-6 py-16 text-center text-[#211218]">
           <h2 className="font-serif text-4xl font-bold">Your next right answer starts here.</h2>
-          <p className="mx-auto mt-4 max-w-lg text-[#211812]/70">Join PreClinik and build a question practice that compounds every day.</p>
-          <Link href="/sign-up" className="mt-7 inline-flex items-center gap-2 rounded-xl bg-[#211812] px-6 py-3.5 font-bold text-white transition-colors hover:bg-[#30231b]">
+          <p className="mx-auto mt-4 max-w-lg text-[#211218]/70">Join PreClinik and build a question practice that compounds every day.</p>
+          <Link href="/sign-up" className="mt-7 inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 font-bold text-white transition-colors hover:bg-primary/90">
             Enter QFLOW <ChevronRight className="h-4 w-4" />
           </Link>
-          <div className="mx-auto mt-12 flex max-w-6xl items-center justify-center gap-4 border-t border-[#211812]/15 pt-5 font-mono text-xs text-[#211812]/55">
+          <div className="mx-auto mt-12 flex max-w-6xl items-center justify-center gap-4 border-t border-[#211218]/15 pt-5 font-mono text-xs text-[#211218]/55">
             <span>© {new Date().getFullYear()} PreClinik</span>
             <span>·</span>
-            <Link href="/terms" className="hover:text-[#211812]">Terms & Privacy</Link>
+            <Link href="/terms" className="hover:text-[#211218]">Terms & Privacy</Link>
           </div>
         </section>
       </main>
