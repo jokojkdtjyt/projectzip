@@ -7,6 +7,7 @@ import {
   Play,
   CheckCircle,
 } from "lucide-react";
+import { trackEvent } from "@/lib/googleAnalytics";
 
 const features = [
   {
@@ -72,6 +73,12 @@ export default function Landing() {
           </Link>
           <Link
             href="/qflow"
+            onClick={() =>
+              trackEvent("qflow_cta_click", {
+                cta_location: "landing_header",
+                page_path: "/",
+              })
+            }
             className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#f4e7d0] text-[#8a5a17] text-xs font-bold tracking-wide hover:bg-[#ecd9b8] transition-colors"
           >
             QFLOW <ArrowRight className="w-3 h-3" />
@@ -164,6 +171,12 @@ export default function Landing() {
 
           <Link
             href="/qflow"
+            onClick={() =>
+              trackEvent("qflow_cta_click", {
+                cta_location: "landing_banner",
+                page_path: "/",
+              })
+            }
             className="group mt-10 mx-auto flex w-full max-w-xl items-center justify-between gap-5 rounded-[22px] border border-[#dfc58f] bg-[#fff8e9] px-5 py-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
           >
             <span className="flex items-center gap-4">

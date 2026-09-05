@@ -6,6 +6,7 @@ import { CartDrawer } from "./CartDrawer";
 import { useUser, useClerk, Show } from "@clerk/react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { useNotifications } from "@/hooks/useNotifications";
+import { trackEvent } from "@/lib/googleAnalytics";
 
 interface TopbarProps {
   role: "student" | "admin";
@@ -276,6 +277,12 @@ export function Topbar({ role, setRole }: TopbarProps) {
               </Link>
               <Link
                 href="/qflow"
+                onClick={() =>
+                  trackEvent("qflow_cta_click", {
+                    cta_location: "topbar",
+                    page_path: window.location.pathname,
+                  })
+                }
                 className="px-3 py-1.5 rounded-full text-sm font-bold text-primary hover:bg-primary/10 transition-colors"
               >
                 QFLOW

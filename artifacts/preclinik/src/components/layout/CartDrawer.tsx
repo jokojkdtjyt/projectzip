@@ -5,6 +5,7 @@ import { useAuth } from '@clerk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { usePostHog } from '@/lib/posthog';
+import { trackEvent } from '@/lib/googleAnalytics';
 
 interface CartDrawerProps {
   open: boolean;
@@ -130,6 +131,11 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
         itemCount: items.length,
         moduleIds: items.map((i) => i.moduleId),
         moduleTitles: items.map((i) => i.title),
+      });
+      trackEvent('purchase_request_submitted', {
+        value: computedTotal,
+        currency: 'DZD',
+        item_count: items.length,
       });
 
       queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });

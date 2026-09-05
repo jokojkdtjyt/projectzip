@@ -3,6 +3,7 @@ import { useAuth } from '@clerk/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Receipt, Clock, CheckCircle2, XCircle, ExternalLink, Inbox, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { trackEvent } from '@/lib/googleAnalytics';
 
 interface PurchaseGroup {
   sessionId: string;
@@ -89,6 +90,10 @@ export default function AdminPurchaseRequests() {
       toast.success('Purchase approved — modules unlocked!', {
         style: { background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--border)' }
       });
+      trackEvent('purchase_request_approved', {
+        module_count: requests?.find((request) => request.sessionId === sessionId)?.modules.length ?? 0,
+        outcome: 'approved',
+      });
       queryClient.invalidateQueries({ queryKey: ['admin', 'purchases'] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Something went wrong', {
@@ -113,6 +118,10 @@ export default function AdminPurchaseRequests() {
       }
       toast.success('Purchase rejected.', {
         style: { background: 'var(--surface)', color: 'var(--ink)', border: '1px solid var(--border)' }
+      });
+      trackEvent('purchase_request_rejected', {
+        module_count: requests?.find((request) => request.sessionId === sessionId)?.modules.length ?? 0,
+        outcome: 'rejected',
       });
       queryClient.invalidateQueries({ queryKey: ['admin', 'purchases'] });
     } catch (err) {

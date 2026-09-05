@@ -9,6 +9,7 @@ import {
   Sparkles,
   Target,
 } from "lucide-react";
+import { trackEvent } from "@/lib/googleAnalytics";
 
 const benefits = [
   {
@@ -62,6 +63,12 @@ export default function QFlow() {
             </Link>
             <Link
               href="/sign-up"
+              onClick={() =>
+                trackEvent("qflow_cta_click", {
+                  cta_location: "qflow_header",
+                  page_path: "/qflow",
+                })
+              }
               className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/90"
             >
               Get started
@@ -92,6 +99,12 @@ export default function QFlow() {
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/sign-up"
+                  onClick={() =>
+                    trackEvent("qflow_cta_click", {
+                      cta_location: "qflow_hero",
+                      page_path: "/qflow",
+                    })
+                  }
                   className="group inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 font-bold text-white shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:bg-primary/90"
                 >
                   Start practicing free
@@ -188,7 +201,16 @@ export default function QFlow() {
         <section className="border-t border-white/10 bg-[#f7f3ec] px-6 py-16 text-center text-[#211218]">
           <h2 className="font-serif text-4xl font-bold">Your next right answer starts here.</h2>
           <p className="mx-auto mt-4 max-w-lg text-[#211218]/70">Join PreClinik and build a question practice that compounds every day.</p>
-          <Link href="/sign-up" className="mt-7 inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 font-bold text-white transition-colors hover:bg-primary/90">
+           <Link
+             href="/sign-up"
+             onClick={() =>
+               trackEvent("qflow_cta_click", {
+                 cta_location: "qflow_footer",
+                 page_path: "/qflow",
+               })
+             }
+             className="mt-7 inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 font-bold text-white transition-colors hover:bg-primary/90"
+           >
             Enter QFLOW <ChevronRight className="h-4 w-4" />
           </Link>
           <div className="mx-auto mt-12 flex max-w-6xl items-center justify-center gap-4 border-t border-[#211218]/15 pt-5 font-mono text-xs text-[#211218]/55">

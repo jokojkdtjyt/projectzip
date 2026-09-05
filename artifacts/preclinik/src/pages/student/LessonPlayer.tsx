@@ -5,6 +5,7 @@ import { useAuth } from '@clerk/react';
 import { useQuery } from '@tanstack/react-query';
 import { PlayCircle, CheckCircle, LayoutList, ChevronRight, FileText, Lock, Loader2 } from 'lucide-react';
 import { usePostHog } from '@/lib/posthog';
+import { trackEvent } from '@/lib/googleAnalytics';
 
 /** Fetches a signed Bunny embed URL for a lesson the user owns. */
 function useLessonPlayUrl(moduleId: string, lessonId: string, enabled: boolean) {
@@ -91,6 +92,16 @@ export default function LessonPlayer() {
   const { data: lesson, isLoading } = useGetLesson(moduleId, lessonId, { query: { enabled: !!moduleId && !!lessonId } });
   const { data: lessons } = useListLessons(moduleId, { query: { enabled: !!moduleId } });
 
+  useEffect(() => {
+    if (!lesson || !module) return;
+
+    trackEvent('lesson_viewed', {
+      lesson_id: lesson.id,
+      module_id: module.id,
+      module_category: module.category,
+    });
+  }, [lesson, module]);
+
   const hasYoutube = !!(lesson as any)?.youtubeUrl;
   const hasBunny = !!(lesson as any)?.bunnyVideoId;
   const hasVideo = hasBunny || hasYoutube;
@@ -119,6 +130,13 @@ export default function LessonPlayer() {
           moduleId,
           lessonTitle: lesson.title,
         });
+        if (!wasPaused) {
+          trackEvent('lesson_started', {
+            lesson_id: lesson.id,
+            module_id: moduleId,
+            content_type: 'video',
+          });
+        }
         lastVideoEventRef.current = 'player-play';
       } else if (data.event === 'player-pause') {
         capture('video_paused', {
@@ -133,6 +151,13 @@ export default function LessonPlayer() {
           moduleId,
           lessonTitle: lesson.title,
         });
+        if (lastVideoEventRef.current !== 'player-ended') {
+          trackEvent('lesson_completed', {
+            lesson_id: lesson.id,
+            module_id: moduleId,
+            content_type: 'video',
+          });
+        }
         lastVideoEventRef.current = 'player-ended';
       }
     };
@@ -276,12 +301,19 @@ export default function LessonPlayer() {
                   <h3 className="font-serif text-xl font-bold mb-2">Lesson Quiz</h3>
                   <p className="text-muted-foreground mb-6">Test your knowledge on {lesson.title}</p>
                   <button
-                    onClick={() => capture('q_bank_quiz_started', {
-                      lessonId: lesson.id,
-                      moduleId,
-                      lessonTitle: lesson.title,
-                      questionCount: lesson.questionCount || 0,
-                    })}
+                    onClick={() => {
+                      capture('q_bank_quiz_started', {
+                        lessonId: lesson.id,
+                        moduleId,
+                        lessonTitle: lesson.title,
+                        questionCount: lesson.questionCount || 0,
+                      });
+                      trackEvent('q_bank_started', {
+                        lesson_id: lesson.id,
+                        module_id: moduleId,
+                        question_count: lesson.questionCount || 0,
+                      });
+                    }}
                     className="bg-primary text-white font-bold px-6 py-3 rounded-xl shadow-md hover:bg-primary/90 transition-colors"
                   >
                     Start Quiz ({lesson.questionCount || 0} Questions)

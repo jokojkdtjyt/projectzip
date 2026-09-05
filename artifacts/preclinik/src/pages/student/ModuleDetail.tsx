@@ -9,6 +9,7 @@ import { usePendingModules } from '@/hooks/usePendingModules';
 import { useRejectedModules } from '@/hooks/useRejectedModules';
 import { NotifyAgain } from '@/components/modules/NotifyAgain';
 import { usePostHog } from '@/lib/posthog';
+import { trackEvent } from '@/lib/googleAnalytics';
 
 export default function ModuleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -34,6 +35,11 @@ export default function ModuleDetail() {
         title: module.title,
         category: module.category,
         isFree: module.isFree,
+      });
+      trackEvent('view_item', {
+        item_id: module.id,
+        item_category: module.category,
+        is_free: module.isFree,
       });
     }
   }, [module]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -145,6 +151,12 @@ export default function ModuleDetail() {
             title: module!.title,
             category: module!.category,
             price: module!.price,
+          });
+          trackEvent('add_to_cart', {
+            item_id: module!.id,
+            item_category: module!.category,
+            value: lowestPrice,
+            currency: 'DZD',
           });
           toast.success(`${module!.title} added to cart — choose your access period at checkout`);
         },

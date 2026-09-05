@@ -18,7 +18,11 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { GlobalUploadBanner } from "@/components/GlobalUploadBanner";
 import { WelcomeEmailSender } from "@/components/layout/WelcomeEmailSender";
 import { initPostHog } from "@/lib/posthog";
-import { initGoogleAnalytics, trackPageView } from "@/lib/googleAnalytics";
+import {
+  initGoogleAnalytics,
+  trackEvent,
+  trackPageView,
+} from "@/lib/googleAnalytics";
 
 // Initialise PostHog analytics (idempotent — safe to call before React mounts)
 initPostHog();
@@ -168,6 +172,46 @@ function SignUpPage() {
       />
     </div>
   );
+}
+
+function AuthOutcomeTracker() {
+  const [location] = useLocation();
+  const { isLoaded, isSignedIn } = useAuth();
+  const previousSignedInRef = useRef<boolean | undefined>(undefined);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (location === "/sign-in" || location.startsWith("/sign-in/")) {
+      window.sessionStorage.setItem("preclinik_ga_auth_intent", "login");
+    } else if (
+      location === "/sign-up" ||
+      location.startsWith("/sign-up/")
+    ) {
+      window.sessionStorage.setItem("preclinik_ga_auth_intent", "sign_up");
+    }
+  }, [location]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const wasSignedIn = previousSignedInRef.current;
+    previousSignedInRef.current = isSignedIn;
+
+    // An already-authenticated session on initial page load is not a new
+    // outcome. Only count a transition from signed out to signed in.
+    if (wasSignedIn !== false || !isSignedIn || typeof window === "undefined") {
+      return;
+    }
+
+    const intent = window.sessionStorage.getItem("preclinik_ga_auth_intent");
+    if (intent !== "login" && intent !== "sign_up") return;
+
+    trackEvent(intent, { method: "clerk" });
+    window.sessionStorage.removeItem("preclinik_ga_auth_intent");
+  }, [isLoaded, isSignedIn]);
+
+  return null;
 }
 
 // ─── Route protection ─────────────────────────────────────────────────────────
@@ -457,6 +501,7 @@ function ClerkProviderWithRoutes() {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
+      <AuthOutcomeTracker />
       <QueryClientProvider client={queryClient}>
         <ClerkTokenSync />
         <ClerkQueryClientCacheInvalidator />

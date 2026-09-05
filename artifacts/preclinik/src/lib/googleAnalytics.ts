@@ -1,4 +1,5 @@
 type Gtag = (...args: unknown[]) => void;
+type AnalyticsEventParams = Record<string, string | number | boolean>;
 
 declare global {
   interface Window {
@@ -39,4 +40,13 @@ export function trackPageView(path: string): void {
     page_location: window.location.href,
     page_title: document.title,
   });
+}
+
+export function trackEvent(
+  eventName: string,
+  params?: AnalyticsEventParams,
+): void {
+  if (!measurementId || !window.gtag) return;
+
+  window.gtag("event", eventName, params);
 }
