@@ -11,6 +11,7 @@ import bunnyRouter from "./bunny";
 import purchasesRouter from "./purchases";
 import notificationsRouter from "./notifications";
 import usersRouter from "./users";
+import analyticsRouter from "./analytics";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(bunnyRouter);
 router.use(purchasesRouter);
 router.use(notificationsRouter);
 router.use(usersRouter);
+router.use(analyticsRouter);
 
 export default router;

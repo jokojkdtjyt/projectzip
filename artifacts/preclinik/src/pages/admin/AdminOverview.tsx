@@ -2,6 +2,7 @@ import React from 'react';
 import { useGetAdminStats } from '@workspace/api-client-react';
 import { Library, BookOpen, Users, Activity, PlayCircle, Plus } from 'lucide-react';
 import { useLocation } from 'wouter';
+import AdminAnalyticsPanel from './AdminAnalyticsPanel';
 
 export default function AdminOverview() {
   const { data: stats, isLoading, isError } = useGetAdminStats({
@@ -92,6 +93,8 @@ export default function AdminOverview() {
           </button>
         </div>
       </div>
+
+      <AdminAnalyticsPanel />
     </div>
   );
 }
