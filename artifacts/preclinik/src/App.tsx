@@ -18,9 +18,11 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { GlobalUploadBanner } from "@/components/GlobalUploadBanner";
 import { WelcomeEmailSender } from "@/components/layout/WelcomeEmailSender";
 import { initPostHog } from "@/lib/posthog";
+import { initGoogleAnalytics, trackPageView } from "@/lib/googleAnalytics";
 
 // Initialise PostHog analytics (idempotent — safe to call before React mounts)
 initPostHog();
+initGoogleAnalytics();
 
 // Shells
 import { StudentShell } from "@/components/layout/StudentShell";
@@ -425,7 +427,11 @@ function AppRoutes() {
 // ─── Clerk provider (needs useLocation from wouter, so lives inside WouterRouter) ──
 
 function ClerkProviderWithRoutes() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
+
+  useEffect(() => {
+    trackPageView(location);
+  }, [location]);
 
   return (
     <ClerkProvider
