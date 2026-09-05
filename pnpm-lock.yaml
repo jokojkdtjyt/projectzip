@@ -240,6 +240,9 @@ importers:
       thread-stream:
         specifier: 3.1.0
         version: 3.1.0
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.0
 
   artifacts/mockup-sandbox:
     devDependencies:
@@ -610,6 +613,9 @@ importers:
       tailwindcss:
         specifier: 'catalog:'
         version: 4.3.2
+      tsx:
+        specifier: 'catalog:'
+        version: 4.23.0
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0

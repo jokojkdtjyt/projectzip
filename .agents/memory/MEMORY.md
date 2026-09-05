@@ -1,1 +1,2 @@
 - [Database connection](database-connection.md) — use the secure external Neon override instead of replacing Replit’s runtime-managed database key.
+- [Artifact test boundaries](artifact-test-boundaries.md) — keep tests inside their artifact package; cross-artifact source imports violate package rootDir checks.
