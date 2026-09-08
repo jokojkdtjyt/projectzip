@@ -74,10 +74,7 @@ export default function AdminAnalyticsPanel() {
             </p>
           </div>
         ) : data.error ? (
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
-            <p className="font-bold">Google Analytics returned an error.</p>
-            <p className="mt-1 text-xs">{data.error}</p>
-          </div>
+          <AnalyticsErrorNotice code={data.errorCode} message={data.error} />
         ) : (
           <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -131,6 +128,76 @@ export default function AdminAnalyticsPanel() {
         )}
       </div>
     </section>
+  );
+}
+
+function AnalyticsErrorNotice({
+  code,
+  message,
+}: {
+  code: "api_disabled" | "property_access_denied" | "unknown" | undefined;
+  message: string;
+}) {
+  if (code === "api_disabled") {
+    return (
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
+        <p className="font-bold">Enable the Google Analytics Data API</p>
+        <p className="mt-1 text-xs leading-relaxed">
+          The Google Analytics Data API is disabled for the Google Cloud project. Open the Google Cloud API Library,
+          select <span className="font-bold">Google Analytics Data API</span>, click <span className="font-bold">Enable</span>,
+          then refresh this report.
+        </p>
+        <a
+          href="https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex text-xs font-bold text-amber-900 underline underline-offset-2 hover:text-amber-700"
+        >
+          Open Google Cloud API Library
+        </a>
+        <p className="mt-4 border-t border-amber-200 pt-3 text-[11px] leading-relaxed text-amber-900/80">
+          Google response: {message}
+        </p>
+      </div>
+    );
+  }
+
+  if (code === "property_access_denied") {
+    return (
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
+        <p className="font-bold">Grant the service account access to this GA4 property</p>
+        <p className="mt-1 text-xs leading-relaxed">
+          The Google service account is valid, but it cannot read this property. In Google Analytics, open
+          <span className="font-bold"> Admin → Property access management</span>, add the service-account email from
+          <span className="font-bold"> GOOGLE_ANALYTICS_SERVICE_ACCOUNT_JSON</span>, give it the
+          <span className="font-bold"> Viewer</span> role, then refresh this report.
+        </p>
+        <a
+          href="https://analytics.google.com/analytics/web/"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex text-xs font-bold text-amber-900 underline underline-offset-2 hover:text-amber-700"
+        >
+          Open Google Analytics
+        </a>
+        <p className="mt-4 border-t border-amber-200 pt-3 text-[11px] leading-relaxed text-amber-900/80">
+          Google response: {message}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
+      <p className="font-bold">Google Analytics returned an error.</p>
+      <p className="mt-1 text-xs">
+        Check that the Google Analytics Data API is enabled, the service account has Viewer access to the GA4
+        property, and the Property ID is correct.
+      </p>
+      <p className="mt-4 border-t border-red-200 pt-3 text-[11px] leading-relaxed text-red-700/80">
+        Google response: {message}
+      </p>
+    </div>
   );
 }
 

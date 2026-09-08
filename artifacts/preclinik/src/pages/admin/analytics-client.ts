@@ -1,3 +1,8 @@
+export type AnalyticsErrorCode =
+  | "api_disabled"
+  | "property_access_denied"
+  | "unknown";
+
 export type AnalyticsData = {
   configured: boolean;
   range?: string;
@@ -10,6 +15,7 @@ export type AnalyticsData = {
   };
   trend?: Array<{ date: string; activeUsers: number; pageViews: number }>;
   topPages?: Array<{ path: string; pageViews: number }>;
+  errorCode?: AnalyticsErrorCode;
   error?: string;
 };
 

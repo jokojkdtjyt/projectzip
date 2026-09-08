@@ -1,5 +1,10 @@
 const REPORT_URL = "https://analyticsdata.googleapis.com/v1beta";
 
+export type AnalyticsErrorCode =
+  | "api_disabled"
+  | "property_access_denied"
+  | "unknown";
+
 export type AnalyticsResponse = {
   metricHeaders?: Array<{ name?: string }>;
   dimensionHeaders?: Array<{ name?: string }>;
@@ -17,6 +22,36 @@ export type AnalyticsReportData = {
   trend: Array<{ date: string; activeUsers: number; pageViews: number }>;
   topPages: Array<{ path: string; pageViews: number }>;
 };
+
+export function classifyAnalyticsError(error: unknown): AnalyticsErrorCode {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+
+  if (
+    (message.includes("google analytics data api") ||
+      message.includes("analyticsdata.googleapis.com")) &&
+    (message.includes("not been enabled") ||
+      message.includes("disabled") ||
+      message.includes("enable it"))
+  ) {
+    return "api_disabled";
+  }
+
+  if (
+    (message.includes("permission") ||
+      message.includes("access") ||
+      message.includes("authorized") ||
+      message.includes("forbidden")) &&
+    (message.includes("property") ||
+      message.includes("analytics") ||
+      message.includes("caller") ||
+      message.includes("user") ||
+      message.includes("service"))
+  ) {
+    return "property_access_denied";
+  }
+
+  return "unknown";
+}
 
 export async function runReport(
   propertyId: string,

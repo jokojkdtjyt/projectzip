@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  classifyAnalyticsError,
   mapAnalyticsReports,
   runReport,
   type AnalyticsResponse,
@@ -99,4 +100,22 @@ test("surfaces the Google API error instead of treating a failed report as data"
       error instanceof Error &&
       error.message === "Google Analytics Data API has not been enabled",
   );
+});
+
+test("classifies the Google Analytics setup errors for targeted admin guidance", () => {
+  assert.equal(
+    classifyAnalyticsError(
+      new Error(
+        "Google Analytics Data API has not been enabled in project 123 or it is disabled",
+      ),
+    ),
+    "api_disabled",
+  );
+  assert.equal(
+    classifyAnalyticsError(
+      new Error("User does not have sufficient permissions for this property"),
+    ),
+    "property_access_denied",
+  );
+  assert.equal(classifyAnalyticsError(new Error("Invalid property ID")), "unknown");
 });

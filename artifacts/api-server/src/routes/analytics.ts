@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { createSign } from "node:crypto";
 import { requireAdmin } from "../middlewares/requireAdmin";
 import {
+  classifyAnalyticsError,
   mapAnalyticsReports,
   runReport,
   type AnalyticsResponse,
@@ -138,6 +139,7 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
     console.error("[Google Analytics] Report failed:", error);
     res.status(502).json({
       configured: true,
+      errorCode: classifyAnalyticsError(error),
       error: error instanceof Error ? error.message : "Google Analytics report failed",
     });
   }
