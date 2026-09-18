@@ -1,6 +1,8 @@
 export type AnalyticsErrorCode =
   | "api_disabled"
   | "property_access_denied"
+  | "invalid_credentials"
+  | "invalid_property_id"
   | "unknown";
 
 export type AnalyticsData = {

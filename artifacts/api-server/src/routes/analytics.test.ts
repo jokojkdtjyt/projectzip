@@ -122,7 +122,20 @@ test("classifies the Google Analytics setup errors for targeted admin guidance",
     ),
     "property_access_denied",
   );
-  assert.equal(classifyAnalyticsError(new Error("Invalid property ID")), "unknown");
+  assert.equal(classifyAnalyticsError(new Error("Invalid property ID")), "invalid_property_id");
+  assert.equal(
+    classifyAnalyticsError(new Error("Google token request failed: invalid_grant")),
+    "invalid_credentials",
+  );
+  assert.equal(
+    classifyAnalyticsError(new Error("error:1E08010C:DECODER routines::unsupported")),
+    "invalid_credentials",
+  );
+  assert.equal(
+    classifyAnalyticsError(new Error("Google Analytics service-account JSON is missing required fields")),
+    "invalid_credentials",
+  );
+  assert.equal(classifyAnalyticsError(new Error("Property 123 was not found")), "invalid_property_id");
 });
 
 test("builds a GA4 top-pages sort with desc at the order-by level", () => {

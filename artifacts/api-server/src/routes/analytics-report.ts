@@ -3,6 +3,8 @@ const REPORT_URL = "https://analyticsdata.googleapis.com/v1beta";
 export type AnalyticsErrorCode =
   | "api_disabled"
   | "property_access_denied"
+  | "invalid_credentials"
+  | "invalid_property_id"
   | "unknown";
 
 export type AnalyticsResponse = {
@@ -58,6 +60,21 @@ export function classifyAnalyticsError(error: unknown): AnalyticsErrorCode {
   const message = error instanceof Error ? error.message.toLowerCase() : "";
 
   if (
+    message.includes("invalid_grant") ||
+    message.includes("invalid_client") ||
+    message.includes("unauthorized_client") ||
+    message.includes("invalid jwt") ||
+    message.includes("private key") ||
+    message.includes("decoder routines") ||
+    message.includes("pem routines") ||
+    message.includes("service-account json") ||
+    message.includes("service account json") ||
+    message.includes("credentials")
+  ) {
+    return "invalid_credentials";
+  }
+
+  if (
     (message.includes("google analytics data api") ||
       message.includes("analyticsdata.googleapis.com")) &&
     (message.includes("not been enabled") ||
@@ -79,6 +96,17 @@ export function classifyAnalyticsError(error: unknown): AnalyticsErrorCode {
       message.includes("service"))
   ) {
     return "property_access_denied";
+  }
+
+  if (
+    message.includes("invalid property") ||
+    (message.includes("property id") &&
+      (message.includes("invalid") || message.includes("malformed") || message.includes("not found"))) ||
+    (message.includes("property") && (message.includes("does not exist") || message.includes("not found"))) ||
+    message.includes("requested entity was not found") ||
+    (message.includes("resource name") && (message.includes("invalid") || message.includes("malformed")))
+  ) {
+    return "invalid_property_id";
   }
 
   return "unknown";

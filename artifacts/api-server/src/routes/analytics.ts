@@ -40,13 +40,23 @@ function readConfig(): { propertyId: string; serviceAccount: ServiceAccount } | 
   const rawCredentials = process.env.GOOGLE_ANALYTICS_SERVICE_ACCOUNT_JSON;
   if (!propertyId || !rawCredentials) return null;
 
-  const parsed = JSON.parse(rawCredentials) as Partial<ServiceAccount>;
-  if (!parsed.client_email || !parsed.private_key) {
+  let parsed: Partial<ServiceAccount>;
+  try {
+    parsed = JSON.parse(rawCredentials) as Partial<ServiceAccount>;
+  } catch {
+    throw new Error("Invalid Google Analytics service-account JSON credentials");
+  }
+  if (typeof parsed.client_email !== "string" || typeof parsed.private_key !== "string") {
     throw new Error("Google Analytics service-account JSON is missing required fields");
   }
 
+  const normalizedPropertyId = propertyId.replace(/^properties\//, "");
+  if (!/^\d+$/.test(normalizedPropertyId)) {
+    throw new Error("Invalid Google Analytics Property ID");
+  }
+
   return {
-    propertyId: propertyId.replace(/^properties\//, ""),
+    propertyId: normalizedPropertyId,
     serviceAccount: {
       client_email: parsed.client_email,
       private_key: parsed.private_key,
@@ -69,11 +79,16 @@ async function getAccessToken(serviceAccount: ServiceAccount): Promise<string> {
   const unsignedToken = `${header}.${payload}`;
   const signer = createSign("RSA-SHA256");
   signer.update(unsignedToken);
-  const signature = signer
-    .sign(serviceAccount.private_key, "base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
+  let signature: string;
+  try {
+    signature = signer
+      .sign(serviceAccount.private_key, "base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+  } catch {
+    throw new Error("Invalid Google Analytics service-account credentials");
+  }
   const assertion = `${unsignedToken}.${signature}`;
 
   const response = await fetch(TOKEN_URL, {
@@ -93,27 +108,10 @@ async function getAccessToken(serviceAccount: ServiceAccount): Promise<string> {
 
 router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> => {
   let config: ReturnType<typeof readConfig>;
-  try {
-    config = readConfig();
-  } catch (error) {
-    res.status(500).json({
-      configured: false,
-      error: error instanceof Error ? error.message : "Invalid Google Analytics configuration",
-    });
-    return;
-  }
 
-  if (!config) {
-    res.json({ configured: false });
-    return;
-  }
+    const errorCode = classifyAnalyticsError(error);
 
-  if (cachedReport && cachedReport.expiresAt > Date.now()) {
-    res.json(cachedReport.data);
-    return;
-  }
-
-  try {
+    const errorCode = classifyAnalyticsError(error);
     const accessToken = await getAccessToken(config.serviceAccount);
     const dateRange = { startDate: "28daysAgo", endDate: "today" };
     const summaryReport = await runReport(config.propertyId, accessToken, {
@@ -174,16 +172,4 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
       realtime,
       ...(realtimeError ? { realtimeError } : {}),
     };
-    cachedReport = { expiresAt: Date.now() + CACHE_TTL_MS, data };
-    res.json(data);
-  } catch (error) {
-    console.error("[Google Analytics] Report failed:", error);
-    res.status(502).json({
-      configured: true,
-      errorCode: classifyAnalyticsError(error),
-      error: error instanceof Error ? error.message : "Google Analytics report failed",
-    });
-  }
-});
-
 export default router;

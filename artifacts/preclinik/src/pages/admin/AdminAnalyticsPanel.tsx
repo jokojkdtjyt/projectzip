@@ -166,7 +166,7 @@ function AnalyticsErrorNotice({
   code,
   message,
 }: {
-  code: "api_disabled" | "property_access_denied" | "unknown" | undefined;
+  code: "api_disabled" | "property_access_denied" | "invalid_credentials" | "invalid_property_id" | "unknown" | undefined;
   message: string;
 }) {
   if (code === "api_disabled") {
@@ -212,6 +212,47 @@ function AnalyticsErrorNotice({
           Open Google Analytics
         </a>
         <p className="mt-4 border-t border-amber-200 pt-3 text-[11px] leading-relaxed text-amber-900/80">
+          Google response: {message}
+        </p>
+      </div>
+    );
+  }
+
+  if (code === "invalid_credentials") {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
+        <p className="font-bold">Correct the Google Analytics service-account credentials</p>
+        <p className="mt-1 text-xs leading-relaxed">
+          The credentials in <span className="font-bold">GOOGLE_ANALYTICS_SERVICE_ACCOUNT_JSON</span> are
+          malformed or were rejected by Google. Replace that environment setting with the complete service-account
+          JSON, then refresh this report.
+        </p>
+        <p className="mt-4 border-t border-red-200 pt-3 text-[11px] leading-relaxed text-red-700/80">
+          The credential contents are hidden for security.
+        </p>
+      </div>
+    );
+  }
+
+  if (code === "invalid_property_id") {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
+        <p className="font-bold">Correct the GA4 Property ID</p>
+        <p className="mt-1 text-xs leading-relaxed">
+          Google could not find or use the configured property. Set{" "}
+          <span className="font-bold">GOOGLE_ANALYTICS_PROPERTY_ID</span> to the numeric GA4 Property ID from
+          Google Analytics Admin → Property details, then refresh this report. Do not use the Measurement ID
+          beginning with <span className="font-bold">G-</span>.
+        </p>
+        <a
+          href="https://analytics.google.com/analytics/web/"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 inline-flex text-xs font-bold text-red-900 underline underline-offset-2 hover:text-red-700"
+        >
+          Open Google Analytics
+        </a>
+        <p className="mt-4 border-t border-red-200 pt-3 text-[11px] leading-relaxed text-red-700/80">
           Google response: {message}
         </p>
       </div>
