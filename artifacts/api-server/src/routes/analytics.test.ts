@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildTopPagesReportRequest,
+  buildContentReportRequest,
   classifyAnalyticsError,
+  mapContentReport,
   mapAnalyticsReports,
   mapRealtimeReport,
   runReport,
@@ -137,6 +139,60 @@ test("builds a GA4 top-pages sort with desc at the order-by level", () => {
   assert.deepEqual(request.orderBys, [
     { metric: { metricName: "screenPageViews" }, desc: true },
   ]);
+});
+
+test("builds and maps module and lesson content rankings by route", () => {
+  assert.deepEqual(
+    buildContentReportRequest({ startDate: "28daysAgo", endDate: "today" }),
+    {
+      dateRanges: [{ startDate: "28daysAgo", endDate: "today" }],
+      dimensions: [{ name: "pagePath" }],
+      metrics: [{ name: "activeUsers" }, { name: "screenPageViews" }],
+      orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
+      limit: "100",
+    },
+  );
+
+  assert.deepEqual(
+    mapContentReport(
+      {
+        rows: [
+          {
+            dimensionValues: [{ value: "/modules/cardio-foundations" }],
+            metricValues: [{ value: "8" }, { value: "21" }],
+          },
+          {
+            dimensionValues: [{ value: "/modules/cardio-foundations/lessons/cv-l1" }],
+            metricValues: [{ value: "5" }, { value: "13" }],
+          },
+          {
+            dimensionValues: [{ value: "/catalog" }],
+            metricValues: [{ value: "20" }, { value: "40" }],
+          },
+        ],
+      },
+      [{ id: "cardio-foundations", title: "Cardio Foundations" }],
+      [{ id: "cv-l1", title: "Heart anatomy" }],
+    ),
+    {
+      topModules: [
+        {
+          id: "cardio-foundations",
+          title: "Cardio Foundations",
+          activeUsers: 8,
+          pageViews: 21,
+        },
+      ],
+      topLessons: [
+        {
+          id: "cv-l1",
+          title: "Heart anatomy",
+          activeUsers: 5,
+          pageViews: 13,
+        },
+      ],
+    },
+  );
 });
 
 test("maps the realtime active-user and event counts", () => {

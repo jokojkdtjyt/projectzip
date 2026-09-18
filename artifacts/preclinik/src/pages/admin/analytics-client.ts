@@ -15,6 +15,11 @@ export type AnalyticsData = {
   };
   trend?: Array<{ date: string; activeUsers: number; pageViews: number }>;
   topPages?: Array<{ path: string; pageViews: number }>;
+  content?: {
+    topModules: Array<{ id: string; title: string; activeUsers: number; pageViews: number }>;
+    topLessons: Array<{ id: string; title: string; activeUsers: number; pageViews: number }>;
+  };
+  contentError?: string;
   realtime?: {
     activeUsers: number;
     eventCount: number;

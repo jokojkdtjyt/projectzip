@@ -127,6 +127,24 @@ export default function AdminAnalyticsPanel() {
                 </div>
               </div>
             </div>
+            <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <ContentRanking
+                title="Most viewed modules"
+                items={data.content?.topModules ?? []}
+              />
+              <ContentRanking
+                title="Most viewed lessons"
+                items={data.content?.topLessons ?? []}
+              />
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Detail-page views show which modules and lessons attract attention; users are unique active users for each page.
+            </p>
+            {data.contentError && (
+              <p className="mt-3 text-xs text-amber-700">
+                Content ranking unavailable: {data.contentError}
+              </p>
+            )}
             {data.fetchedAt && (
               <p className="mt-6 text-right font-mono text-[10px] text-muted-foreground">
                 Updated {new Date(data.fetchedAt).toLocaleTimeString()}
@@ -230,6 +248,39 @@ function MetricCard({
         <Icon className="h-4 w-4 text-primary" />
       </div>
       <div className="mt-3 font-serif text-2xl font-bold text-foreground">{value}</div>
+    </div>
+  );
+}
+
+function ContentRanking({
+  title,
+  items,
+}: {
+  title: string;
+  items: Array<{ id: string; title: string; activeUsers: number; pageViews: number }>;
+}) {
+  return (
+    <div>
+      <h3 className="mb-4 text-sm font-bold text-foreground">{title}</h3>
+      <div className="space-y-2">
+        {items.map((item, index) => (
+          <div key={item.id} className="flex items-center justify-between gap-4 rounded-xl border border-border bg-secondary/30 px-3 py-2.5">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="w-5 shrink-0 text-center font-mono text-[10px] font-bold text-muted-foreground">{index + 1}</span>
+              <span className="min-w-0 truncate text-xs font-bold text-foreground">{item.title}</span>
+            </div>
+            <div className="flex shrink-0 items-center gap-3 font-mono text-[10px] text-muted-foreground">
+              <span title="Unique active users">{formatNumber(item.activeUsers)} users</span>
+              <span title="Detail page views">{formatNumber(item.pageViews)} views</span>
+            </div>
+          </div>
+        ))}
+        {items.length === 0 && (
+          <p className="rounded-xl border border-dashed border-border p-4 text-xs text-muted-foreground">
+            No content views yet.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

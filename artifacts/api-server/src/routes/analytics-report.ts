@@ -25,6 +25,11 @@ export type AnalyticsReportData = {
   realtimeError?: string;
 };
 
+export type ContentAnalyticsData = {
+  topModules: Array<{ id: string; title: string; activeUsers: number; pageViews: number }>;
+  topLessons: Array<{ id: string; title: string; activeUsers: number; pageViews: number }>;
+};
+
 export function buildTopPagesReportRequest(
   dateRange: { startDate: string; endDate: string },
 ): Record<string, unknown> {
@@ -34,6 +39,18 @@ export function buildTopPagesReportRequest(
     metrics: [{ name: "screenPageViews" }],
     orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
     limit: "5",
+  };
+}
+
+export function buildContentReportRequest(
+  dateRange: { startDate: string; endDate: string },
+): Record<string, unknown> {
+  return {
+    dateRanges: [dateRange],
+    dimensions: [{ name: "pagePath" }],
+    metrics: [{ name: "activeUsers" }, { name: "screenPageViews" }],
+    orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
+    limit: "100",
   };
 }
 
@@ -126,6 +143,48 @@ export function mapRealtimeReport(report: AnalyticsResponse): {
   return {
     activeUsers: Number(metrics.activeUsers ?? 0),
     eventCount: Number(metrics.eventCount ?? 0),
+  };
+}
+
+export function mapContentReport(
+  report: AnalyticsResponse,
+  modules: Array<{ id: string; title: string }>,
+  lessons: Array<{ id: string; title: string }>,
+): ContentAnalyticsData {
+  const moduleTitles = new Map(modules.map((module) => [module.id, module.title]));
+  const lessonTitles = new Map(lessons.map((lesson) => [lesson.id, lesson.title]));
+  const topModules: ContentAnalyticsData["topModules"] = [];
+  const topLessons: ContentAnalyticsData["topLessons"] = [];
+
+  for (const row of report.rows ?? []) {
+    const path = row.dimensionValues?.[0]?.value ?? "";
+    const activeUsers = Number(row.metricValues?.[0]?.value ?? 0);
+    const pageViews = Number(row.metricValues?.[1]?.value ?? 0);
+    const lessonMatch = path.match(/^\/modules\/([^/]+)\/lessons\/([^/]+)\/?$/);
+    const moduleMatch = path.match(/^\/modules\/([^/]+)\/?$/);
+
+    if (lessonMatch) {
+      const [, moduleId, lessonId] = lessonMatch;
+      topLessons.push({
+        id: lessonId,
+        title: lessonTitles.get(lessonId) ?? `${moduleTitles.get(moduleId) ?? moduleId} lesson`,
+        activeUsers,
+        pageViews,
+      });
+    } else if (moduleMatch) {
+      const [, moduleId] = moduleMatch;
+      topModules.push({
+        id: moduleId,
+        title: moduleTitles.get(moduleId) ?? moduleId,
+        activeUsers,
+        pageViews,
+      });
+    }
+  }
+
+  return {
+    topModules: topModules.slice(0, 5),
+    topLessons: topLessons.slice(0, 5),
   };
 }
 

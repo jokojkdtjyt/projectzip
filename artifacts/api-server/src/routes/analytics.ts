@@ -1,14 +1,18 @@
 import { Router, type IRouter } from "express";
 import { createSign } from "node:crypto";
+import { db, lessonsTable, modulesTable } from "@workspace/db";
 import { requireAdmin } from "../middlewares/requireAdmin";
 import {
+  buildContentReportRequest,
   classifyAnalyticsError,
   buildTopPagesReportRequest,
+  mapContentReport,
   mapAnalyticsReports,
   mapRealtimeReport,
   runReport,
   runRealtimeReport,
   type AnalyticsResponse,
+  type ContentAnalyticsData,
 } from "./analytics-report";
 
 const router: IRouter = Router();
@@ -133,6 +137,27 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
       buildTopPagesReportRequest(dateRange),
     );
 
+    let content: ContentAnalyticsData = {
+      topModules: [],
+      topLessons: [],
+    };
+    let contentError: string | undefined;
+    try {
+      const contentReport = await runReport(
+        config.propertyId,
+        accessToken,
+        buildContentReportRequest(dateRange),
+      );
+      const [modules, lessons] = await Promise.all([
+        db.select({ id: modulesTable.id, title: modulesTable.title }).from(modulesTable),
+        db.select({ id: lessonsTable.id, title: lessonsTable.title }).from(lessonsTable),
+      ]);
+      content = mapContentReport(contentReport, modules, lessons);
+    } catch (error) {
+      contentError = error instanceof Error ? error.message : "Content report unavailable";
+      console.warn("[Google Analytics] Content report failed:", contentError);
+    }
+
     let realtime = { activeUsers: 0, eventCount: 0 };
     let realtimeError: string | undefined;
     try {
@@ -144,6 +169,8 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
 
     const data = {
       ...mapAnalyticsReports(summaryReport, trendReport, pagesReport),
+      content,
+      ...(contentError ? { contentError } : {}),
       realtime,
       ...(realtimeError ? { realtimeError } : {}),
     };
