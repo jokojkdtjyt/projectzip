@@ -15,6 +15,11 @@ export type AnalyticsData = {
   };
   trend?: Array<{ date: string; activeUsers: number; pageViews: number }>;
   topPages?: Array<{ path: string; pageViews: number }>;
+  realtime?: {
+    activeUsers: number;
+    eventCount: number;
+  };
+  realtimeError?: string;
   errorCode?: AnalyticsErrorCode;
   error?: string;
 };

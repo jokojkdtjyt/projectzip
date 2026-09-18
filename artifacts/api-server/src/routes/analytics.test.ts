@@ -4,7 +4,9 @@ import {
   buildTopPagesReportRequest,
   classifyAnalyticsError,
   mapAnalyticsReports,
+  mapRealtimeReport,
   runReport,
+  runRealtimeReport,
   type AnalyticsResponse,
 } from "./analytics-report";
 
@@ -135,4 +137,34 @@ test("builds a GA4 top-pages sort with desc at the order-by level", () => {
   assert.deepEqual(request.orderBys, [
     { metric: { metricName: "screenPageViews" }, desc: true },
   ]);
+});
+
+test("maps the realtime active-user and event counts", () => {
+  assert.deepEqual(
+    mapRealtimeReport({
+      metricHeaders: [{ name: "activeUsers" }, { name: "eventCount" }],
+      rows: [{ metricValues: [{ value: "2" }, { value: "17" }] }],
+    }),
+    { activeUsers: 2, eventCount: 17 },
+  );
+});
+
+test("uses the GA4 realtime report endpoint", async () => {
+  let requestUrl = "";
+  let requestBody = "";
+  globalThis.fetch = async (input, init) => {
+    requestUrl = String(input);
+    requestBody = String(init?.body ?? "");
+    return response({
+      metricHeaders: [{ name: "activeUsers" }, { name: "eventCount" }],
+      rows: [{ metricValues: [{ value: "1" }, { value: "3" }] }],
+    });
+  };
+
+  const report = await runRealtimeReport("404322982", "access-token");
+  assert.equal(requestUrl, "https://analyticsdata.googleapis.com/v1beta/properties/404322982:runRealtimeReport");
+  assert.deepEqual(JSON.parse(requestBody), {
+    metrics: [{ name: "activeUsers" }, { name: "eventCount" }],
+  });
+  assert.equal(report.rows?.[0]?.metricValues?.[0]?.value, "1");
 });

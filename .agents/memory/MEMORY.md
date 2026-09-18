@@ -1,3 +1,4 @@
 - [Database connection](database-connection.md) — use the secure external Neon override instead of replacing Replit’s runtime-managed database key.
 - [Artifact test boundaries](artifact-test-boundaries.md) — keep tests inside their artifact package; cross-artifact source imports violate package rootDir checks.
 - [GA4 report ordering](ga4-report-ordering.md) — GA4 Data API sort direction belongs on the orderBy object, not inside its metric definition.
+- [GA4 report verification](ga4-report-verification.md) — compare standard reports with realtime data when a connected property returns empty rows.

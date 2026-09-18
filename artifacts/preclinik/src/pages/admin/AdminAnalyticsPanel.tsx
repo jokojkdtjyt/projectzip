@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart3, Clock3, Eye, Loader2, RefreshCw, Users } from "lucide-react";
+import { Activity, BarChart3, Clock3, Eye, Loader2, RefreshCw, Users } from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -77,12 +77,20 @@ export default function AdminAnalyticsPanel() {
           <AnalyticsErrorNotice code={data.errorCode} message={data.error} />
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
               <MetricCard label="Active users" value={formatNumber(data.summary?.activeUsers)} icon={Users} />
               <MetricCard label="Sessions" value={formatNumber(data.summary?.sessions)} icon={Clock3} />
               <MetricCard label="Page views" value={formatNumber(data.summary?.screenPageViews)} icon={Eye} />
               <MetricCard label="Engagement rate" value={formatPercent(data.summary?.engagementRate)} icon={BarChart3} />
+              <MetricCard label="Realtime users" value={formatNumber(data.realtime?.activeUsers)} icon={Activity} />
             </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Realtime events in the last few minutes:{" "}
+              <span className="font-bold text-foreground">{formatNumber(data.realtime?.eventCount)}</span>
+              {data.realtime?.eventCount
+                ? " — tracking is receiving events; standard reports may still be processing."
+                : " — no events are visible right now. Keep this page open, browse the site in another tab, then refresh."}
+            </p>
 
             <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_0.8fr]">
               <div>
@@ -122,6 +130,11 @@ export default function AdminAnalyticsPanel() {
             {data.fetchedAt && (
               <p className="mt-6 text-right font-mono text-[10px] text-muted-foreground">
                 Updated {new Date(data.fetchedAt).toLocaleTimeString()}
+              </p>
+            )}
+            {data.realtimeError && (
+              <p className="mt-2 text-right text-xs text-amber-700">
+                Realtime check unavailable: {data.realtimeError}
               </p>
             )}
           </>

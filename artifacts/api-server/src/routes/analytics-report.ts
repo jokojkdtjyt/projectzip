@@ -21,6 +21,8 @@ export type AnalyticsReportData = {
   summary: Record<string, number>;
   trend: Array<{ date: string; activeUsers: number; pageViews: number }>;
   topPages: Array<{ path: string; pageViews: number }>;
+  realtime?: { activeUsers: number; eventCount: number };
+  realtimeError?: string;
 };
 
 export function buildTopPagesReportRequest(
@@ -86,6 +88,45 @@ export async function runReport(
     throw new Error(body.error?.message ?? `Google Analytics report failed (${response.status})`);
   }
   return body;
+}
+
+export async function runRealtimeReport(
+  propertyId: string,
+  accessToken: string,
+): Promise<AnalyticsResponse> {
+  const response = await fetch(
+    `${REPORT_URL}/properties/${encodeURIComponent(propertyId)}:runRealtimeReport`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        metrics: [{ name: "activeUsers" }, { name: "eventCount" }],
+      }),
+    },
+  );
+  const body = (await response.json()) as AnalyticsResponse & { error?: { message?: string } };
+  if (!response.ok) {
+    throw new Error(body.error?.message ?? `Google Analytics realtime report failed (${response.status})`);
+  }
+  return body;
+}
+
+export function mapRealtimeReport(report: AnalyticsResponse): {
+  activeUsers: number;
+  eventCount: number;
+} {
+  const headers = report.metricHeaders ?? [];
+  const values = report.rows?.[0]?.metricValues ?? [];
+  const metrics = Object.fromEntries(
+    headers.map((header, index) => [header.name ?? `metric_${index}`, Number(values[index]?.value ?? 0)]),
+  );
+  return {
+    activeUsers: Number(metrics.activeUsers ?? 0),
+    eventCount: Number(metrics.eventCount ?? 0),
+  };
 }
 
 function metricMap(report: AnalyticsResponse): Record<string, number> {

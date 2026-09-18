@@ -5,7 +5,9 @@ import {
   classifyAnalyticsError,
   buildTopPagesReportRequest,
   mapAnalyticsReports,
+  mapRealtimeReport,
   runReport,
+  runRealtimeReport,
   type AnalyticsResponse,
 } from "./analytics-report";
 
@@ -131,7 +133,20 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
       buildTopPagesReportRequest(dateRange),
     );
 
-    const data = mapAnalyticsReports(summaryReport, trendReport, pagesReport);
+    let realtime = { activeUsers: 0, eventCount: 0 };
+    let realtimeError: string | undefined;
+    try {
+      realtime = mapRealtimeReport(await runRealtimeReport(config.propertyId, accessToken));
+    } catch (error) {
+      realtimeError = error instanceof Error ? error.message : "Realtime report unavailable";
+      console.warn("[Google Analytics] Realtime report failed:", realtimeError);
+    }
+
+    const data = {
+      ...mapAnalyticsReports(summaryReport, trendReport, pagesReport),
+      realtime,
+      ...(realtimeError ? { realtimeError } : {}),
+    };
     cachedReport = { expiresAt: Date.now() + CACHE_TTL_MS, data };
     res.json(data);
   } catch (error) {
