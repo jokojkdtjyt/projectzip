@@ -3,6 +3,7 @@ import { createSign } from "node:crypto";
 import { requireAdmin } from "../middlewares/requireAdmin";
 import {
   classifyAnalyticsError,
+  buildTopPagesReportRequest,
   mapAnalyticsReports,
   runReport,
   type AnalyticsResponse,
@@ -124,13 +125,11 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
       metrics: [{ name: "activeUsers" }, { name: "screenPageViews" }],
       orderBys: [{ dimension: { dimensionName: "date" } }],
     });
-    const pagesReport = await runReport(config.propertyId, accessToken, {
-      dateRanges: [dateRange],
-      dimensions: [{ name: "pagePath" }],
-      metrics: [{ name: "screenPageViews" }],
-      orderBys: [{ metric: { metricName: "screenPageViews", desc: true } }],
-      limit: "5",
-    });
+    const pagesReport = await runReport(
+      config.propertyId,
+      accessToken,
+      buildTopPagesReportRequest(dateRange),
+    );
 
     const data = mapAnalyticsReports(summaryReport, trendReport, pagesReport);
     cachedReport = { expiresAt: Date.now() + CACHE_TTL_MS, data };

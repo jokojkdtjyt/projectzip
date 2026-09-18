@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildTopPagesReportRequest,
   classifyAnalyticsError,
   mapAnalyticsReports,
   runReport,
@@ -118,4 +119,20 @@ test("classifies the Google Analytics setup errors for targeted admin guidance",
     "property_access_denied",
   );
   assert.equal(classifyAnalyticsError(new Error("Invalid property ID")), "unknown");
+});
+
+test("builds a GA4 top-pages sort with desc at the order-by level", () => {
+  const request = buildTopPagesReportRequest({
+    startDate: "28daysAgo",
+    endDate: "today",
+  }) as {
+    orderBys: Array<{
+      metric: { metricName: string; desc?: boolean };
+      desc?: boolean;
+    }>;
+  };
+
+  assert.deepEqual(request.orderBys, [
+    { metric: { metricName: "screenPageViews" }, desc: true },
+  ]);
 });

@@ -23,6 +23,18 @@ export type AnalyticsReportData = {
   topPages: Array<{ path: string; pageViews: number }>;
 };
 
+export function buildTopPagesReportRequest(
+  dateRange: { startDate: string; endDate: string },
+): Record<string, unknown> {
+  return {
+    dateRanges: [dateRange],
+    dimensions: [{ name: "pagePath" }],
+    metrics: [{ name: "screenPageViews" }],
+    orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
+    limit: "5",
+  };
+}
+
 export function classifyAnalyticsError(error: unknown): AnalyticsErrorCode {
   const message = error instanceof Error ? error.message.toLowerCase() : "";
 
