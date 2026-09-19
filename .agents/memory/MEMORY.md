@@ -2,3 +2,4 @@
 - [Artifact test boundaries](artifact-test-boundaries.md) — keep tests inside their artifact package; cross-artifact source imports violate package rootDir checks.
 - [GA4 report ordering](ga4-report-ordering.md) — GA4 Data API sort direction belongs on the orderBy object, not inside its metric definition.
 - [GA4 report verification](ga4-report-verification.md) — compare standard reports with realtime data when a connected property returns empty rows.
+- [Analytics route merge safety](analytics-route-merge-safety.md) — verify the complete route control flow after merging analytics remediation changes.

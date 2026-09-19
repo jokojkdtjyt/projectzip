@@ -108,10 +108,29 @@ async function getAccessToken(serviceAccount: ServiceAccount): Promise<string> {
 
 router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> => {
   let config: ReturnType<typeof readConfig>;
-
+  try {
+    config = readConfig();
+  } catch (error) {
     const errorCode = classifyAnalyticsError(error);
+    res.status(500).json({
+      configured: true,
+      errorCode,
+      error: error instanceof Error ? error.message : "Invalid Google Analytics configuration",
+    });
+    return;
+  }
 
-    const errorCode = classifyAnalyticsError(error);
+  if (!config) {
+    res.json({ configured: false });
+    return;
+  }
+
+  if (cachedReport && cachedReport.expiresAt > Date.now()) {
+    res.json(cachedReport.data);
+    return;
+  }
+
+  try {
     const accessToken = await getAccessToken(config.serviceAccount);
     const dateRange = { startDate: "28daysAgo", endDate: "today" };
     const summaryReport = await runReport(config.propertyId, accessToken, {
@@ -172,4 +191,16 @@ router.get("/admin/analytics", requireAdmin, async (_req, res): Promise<void> =>
       realtime,
       ...(realtimeError ? { realtimeError } : {}),
     };
+    cachedReport = { expiresAt: Date.now() + CACHE_TTL_MS, data };
+    res.json(data);
+  } catch (error) {
+    console.error("[Google Analytics] Report failed:", error);
+    res.status(502).json({
+      configured: true,
+      errorCode: classifyAnalyticsError(error),
+      error: error instanceof Error ? error.message : "Google Analytics report failed",
+    });
+  }
+});
+
 export default router;
