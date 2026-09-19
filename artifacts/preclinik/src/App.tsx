@@ -51,6 +51,8 @@ import AdminPurchaseRequests from "@/pages/admin/AdminPurchaseRequests";
 // Auth + Landing + Legal pages
 import Landing from "@/pages/Landing";
 import QFlow from "@/pages/QFlow";
+import QFlowSetup from "@/pages/QFlowSetup";
+import QFlowPractice from "@/pages/QFlowPractice";
 import Terms from "@/pages/Terms";
 import NotFound from "@/pages/not-found";
 
@@ -376,6 +378,8 @@ function AppRoutes() {
 
       {/* Public: QFLOW question-bank landing page */}
       <Route path="/qflow" component={QFlow} />
+      <Route path="/qflow/setup" component={QFlowSetup} />
+      <Route path="/qflow/practice" component={QFlowPractice} />
 
       {/* Public: module catalog (browsing is free) */}
       <Route path="/catalog">

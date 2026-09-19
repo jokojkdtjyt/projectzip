@@ -98,7 +98,7 @@ export default function QFlow() {
               </p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Link
-                  href="/sign-up"
+                  href="/qflow/setup"
                   onClick={() =>
                     trackEvent("qflow_cta_click", {
                       cta_location: "qflow_hero",
@@ -202,7 +202,7 @@ export default function QFlow() {
           <h2 className="font-serif text-4xl font-bold">Your next right answer starts here.</h2>
           <p className="mx-auto mt-4 max-w-lg text-[#211218]/70">Join PreClinik and build a question practice that compounds every day.</p>
            <Link
-             href="/sign-up"
+              href="/qflow/setup"
              onClick={() =>
                trackEvent("qflow_cta_click", {
                  cta_location: "qflow_footer",
