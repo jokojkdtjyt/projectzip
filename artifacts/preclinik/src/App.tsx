@@ -53,6 +53,8 @@ import Landing from "@/pages/Landing";
 import QFlow from "@/pages/QFlow";
 import QFlowSetup from "@/pages/QFlowSetup";
 import QFlowPractice from "@/pages/QFlowPractice";
+import QFlowModuleSelection from "@/pages/QFlowModuleSelection";
+import QFlowSession from "@/pages/QFlowSession";
 import Terms from "@/pages/Terms";
 import NotFound from "@/pages/not-found";
 
@@ -380,6 +382,8 @@ function AppRoutes() {
       <Route path="/qflow" component={QFlow} />
       <Route path="/qflow/setup" component={QFlowSetup} />
       <Route path="/qflow/practice" component={QFlowPractice} />
+      <Route path="/qflow/practice/module/:moduleId" component={QFlowModuleSelection} />
+      <Route path="/qflow/session" component={QFlowSession} />
 
       {/* Public: module catalog (browsing is free) */}
       <Route path="/catalog">

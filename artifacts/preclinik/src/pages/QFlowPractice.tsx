@@ -21,9 +21,14 @@ export default function QFlowPractice() {
   const displayName = profile?.university ? profile.university.replace("University of ", "") : "your medical school";
   const currentUnit = profile?.unit ?? "your current unit";
 
-  const beginPractice = (label: string) => {
+  const beginPractice = (label: string, moduleId?: string) => {
     trackEvent("qflow_practice_started", { practice_type: label, unit: currentUnit });
-    setLocation(`/qflow/practice?mode=${encodeURIComponent(label)}`);
+    if (moduleId) {
+      setLocation(`/qflow/practice/module/${moduleId}`);
+      return;
+    }
+    const firstModuleId = visibleModules[0]?.id;
+    setLocation(firstModuleId ? `/qflow/practice/module/${firstModuleId}` : `/qflow/practice?mode=${encodeURIComponent(label)}`);
   };
 
   return (
@@ -131,11 +136,12 @@ export default function QFlowPractice() {
               {!isLoading && visibleModules.map((module, index) => (
                 <PracticeModuleCard
                   key={module.id}
+                  moduleId={module.id}
                   title={module.title}
                   meta={`${module.category} · ${module.lessonCount ?? 0} lessons`}
                   summary={module.summary}
                   gradient={module.gradient || fallbackColors[index % fallbackColors.length]}
-                  onStart={() => beginPractice(module.title)}
+                  onStart={() => beginPractice(module.title, module.id)}
                 />
               ))}
               {!isLoading && visibleModules.length === 0 && (
@@ -173,20 +179,32 @@ function PracticeStat({ icon: Icon, value, label }: { icon: typeof Flame; value:
 }
 
 function PracticeModuleCard({
+  moduleId,
   title,
   meta,
   summary,
   gradient,
   onStart,
 }: {
+  moduleId: string;
   title: string;
   meta: string;
   summary?: string;
   gradient: string;
   onStart: () => void;
 }) {
+  const [, setLocation] = useLocation();
+
   return (
-    <article className="group overflow-hidden rounded-[22px] border border-border bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg">
+    <article
+      className="group cursor-pointer overflow-hidden rounded-[22px] border border-border bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg"
+      onClick={() => setLocation(`/qflow/practice/module/${moduleId}`)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") setLocation(`/qflow/practice/module/${moduleId}`);
+      }}
+      role="link"
+      tabIndex={0}
+    >
       <div className="relative h-28 overflow-hidden p-5 text-white" style={{ background: gradient }}>
         <div className="absolute -right-4 -top-8 h-28 w-28 rounded-full border border-white/20" />
         <div className="relative flex h-full flex-col justify-between">
@@ -199,7 +217,7 @@ function PracticeModuleCard({
         <p className="mt-2 line-clamp-2 min-h-10 text-sm leading-relaxed text-muted-foreground">{summary || "Practice focused questions and build confidence one answer at a time."}</p>
         <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
           <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Not started</span>
-          <button type="button" onClick={onStart} className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-2 text-xs font-bold text-foreground transition-colors hover:bg-primary hover:text-white">
+          <button type="button" onClick={(event) => { event.stopPropagation(); onStart(); }} className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-2 text-xs font-bold text-foreground transition-colors hover:bg-primary hover:text-white">
             Practice <Play className="h-3.5 w-3.5" />
           </button>
         </div>
