@@ -15,6 +15,13 @@ export interface ModuleInput {
   rating?: number;
   students?: number;
   price?: number;
+  /** @nullable */
+  price3Month?: number | null;
+  /** @nullable */
+  price1Year?: number | null;
+  /** @nullable */
+  priceLifetime?: number | null;
+  isFree?: boolean;
   duration: string;
   published?: boolean;
   icon: string;
@@ -23,5 +30,4 @@ export interface ModuleInput {
   year: string;
   summary: string;
   outcomes?: string[];
-  isFree?: boolean;
 }

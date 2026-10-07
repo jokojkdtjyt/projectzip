@@ -22,4 +22,8 @@ export interface LessonUpdate {
   youtubeUrl?: string | null;
   isFree?: boolean;
   sortOrder?: number;
+  /** @nullable */
+  qflowChapterCode?: string | null;
+  /** @nullable */
+  qflowChapterId?: string | null;
 }

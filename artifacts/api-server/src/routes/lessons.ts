@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, isNull, ne, or } from "drizzle-orm";
 import { db, lessonsTable, questionsTable, notificationsTable, modulesTable } from "@workspace/db";
 import crypto from "node:crypto";
 import {
@@ -23,6 +23,43 @@ async function withQuestionCount(lesson: typeof lessonsTable.$inferSelect) {
     .from(questionsTable)
     .where(eq(questionsTable.lessonId, lesson.id));
   return { ...lesson, questionCount: Number(row?.count ?? 0) };
+}
+
+function normalizedChapterCode(value: string | null | undefined) {
+  const normalized = value?.trim().toUpperCase();
+  return normalized || null;
+}
+
+async function validateChapterCode(code: string | null, exceptLessonId?: string) {
+  if (!code) return null;
+  const [existing] = await db
+    .select({ id: lessonsTable.id })
+    .from(lessonsTable)
+    .where(exceptLessonId
+      ? and(eq(lessonsTable.qflowChapterCode, code), ne(lessonsTable.id, exceptLessonId))
+      : eq(lessonsTable.qflowChapterCode, code))
+    .limit(1);
+  return existing ? "That chapter ID is already in use. Choose a unique chapter ID." : null;
+}
+
+async function validateChapterLink(sourceLessonId: string, chapterId: string | null) {
+  if (!chapterId) return null;
+  if (chapterId === sourceLessonId) return "A lesson cannot link its Q-bank to itself.";
+  const [hasLinkedLessons] = await db
+    .select({ id: lessonsTable.id })
+    .from(lessonsTable)
+    .where(eq(lessonsTable.qflowChapterId, sourceLessonId))
+    .limit(1);
+  if (hasLinkedLessons) return "Unlink lessons already assigned to this chapter before linking it elsewhere.";
+
+  const [chapter] = await db
+    .select({ id: lessonsTable.id, qflowChapterId: lessonsTable.qflowChapterId })
+    .from(lessonsTable)
+    .where(eq(lessonsTable.id, chapterId))
+    .limit(1);
+  if (!chapter) return "The selected QFLOW chapter no longer exists.";
+  if (chapter.qflowChapterId) return "Choose a top-level QFLOW chapter, not a lesson already linked elsewhere.";
+  return null;
 }
 
 // ── GET /modules/:moduleId/lessons ─────────────────────────────────────────────
@@ -69,6 +106,102 @@ router.get("/modules/:moduleId/lessons", async (req, res): Promise<void> => {
   res.json(result);
 });
 
+// QFLOW presents only top-level chapters. Questions from linked lessons are
+// counted under their destination chapter instead of appearing as duplicates.
+router.get("/qflow/modules/:moduleId/chapters", async (req, res): Promise<void> => {
+  const params = ListLessonsParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const admin = await isAdminRequest(req);
+  const conditions = [
+    eq(lessonsTable.moduleId, params.data.moduleId),
+    isNull(lessonsTable.qflowChapterId),
+  ];
+  if (!admin) conditions.push(eq(lessonsTable.published, true));
+
+  const chapters = await db
+    .select()
+    .from(lessonsTable)
+    .where(and(...conditions))
+    .orderBy(lessonsTable.sortOrder);
+  if (!chapters.length) {
+    res.json([]);
+    return;
+  }
+
+  const chapterIds = chapters.map((chapter) => chapter.id);
+  const questionCounts = await db
+    .select({
+      chapterId: sql<string>`coalesce(${lessonsTable.qflowChapterId}, ${lessonsTable.id})`,
+      count: sql<number>`count(${questionsTable.id})::int`,
+    })
+    .from(questionsTable)
+    .innerJoin(lessonsTable, eq(questionsTable.lessonId, lessonsTable.id))
+    .where(and(
+      inArray(sql<string>`coalesce(${lessonsTable.qflowChapterId}, ${lessonsTable.id})`, chapterIds),
+      ...(admin ? [] : [eq(lessonsTable.published, true)]),
+    ))
+    .groupBy(sql`coalesce(${lessonsTable.qflowChapterId}, ${lessonsTable.id})`);
+  const countMap = new Map(questionCounts.map((row) => [row.chapterId, Number(row.count)]));
+  res.json(chapters.map((chapter) => ({
+    ...chapter,
+    questionCount: countMap.get(chapter.id) ?? 0,
+  })));
+});
+
+router.get("/qflow/modules/:moduleId/chapters/:chapterId/questions", async (req, res): Promise<void> => {
+  const params = GetLessonParams.safeParse({
+    moduleId: req.params.moduleId,
+    lessonId: req.params.chapterId,
+  });
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const admin = await isAdminRequest(req);
+  const chapterConditions = [
+    eq(lessonsTable.id, params.data.lessonId),
+    eq(lessonsTable.moduleId, params.data.moduleId),
+    isNull(lessonsTable.qflowChapterId),
+  ];
+  if (!admin) chapterConditions.push(eq(lessonsTable.published, true));
+  const [chapter] = await db
+    .select({ id: lessonsTable.id })
+    .from(lessonsTable)
+    .where(and(...chapterConditions))
+    .limit(1);
+  if (!chapter) {
+    res.status(404).json({ error: "QFLOW chapter not found" });
+    return;
+  }
+
+  const questionConditions = [
+    or(
+      eq(lessonsTable.id, chapter.id),
+      eq(lessonsTable.qflowChapterId, chapter.id),
+    )!,
+  ];
+  if (!admin) questionConditions.push(eq(lessonsTable.published, true));
+  const questions = await db
+    .select({
+      id: questionsTable.id,
+      lessonId: questionsTable.lessonId,
+      question: questionsTable.question,
+      options: questionsTable.options,
+      correct: questionsTable.correct,
+      comment: questionsTable.comment,
+    })
+    .from(questionsTable)
+    .innerJoin(lessonsTable, eq(questionsTable.lessonId, lessonsTable.id))
+    .where(and(...questionConditions))
+    .orderBy(questionsTable.id);
+  res.json(questions);
+});
+
 router.post("/modules/:moduleId/lessons", requireAdmin, async (req, res): Promise<void> => {
   const params = CreateLessonParams.safeParse(req.params);
   if (!params.success) {
@@ -82,9 +215,26 @@ router.post("/modules/:moduleId/lessons", requireAdmin, async (req, res): Promis
     return;
   }
 
+  const chapterCode = normalizedChapterCode(parsed.data.qflowChapterCode);
+  const codeError = await validateChapterCode(chapterCode);
+  if (codeError) {
+    res.status(409).json({ error: codeError });
+    return;
+  }
+  const linkError = await validateChapterLink(parsed.data.id, parsed.data.qflowChapterId ?? null);
+  if (linkError) {
+    res.status(400).json({ error: linkError });
+    return;
+  }
+
   const [lesson] = await db
     .insert(lessonsTable)
-    .values({ ...parsed.data, moduleId: params.data.moduleId })
+    .values({
+      ...parsed.data,
+      qflowChapterCode: chapterCode,
+      qflowChapterId: parsed.data.qflowChapterId ?? null,
+      moduleId: params.data.moduleId,
+    })
     .returning();
 
   // Look up the parent module title for the notification body
@@ -151,9 +301,43 @@ router.patch("/modules/:moduleId/lessons/:lessonId", requireAdmin, async (req, r
     return;
   }
 
+  const [existingLesson] = await db
+    .select()
+    .from(lessonsTable)
+    .where(and(
+      eq(lessonsTable.id, params.data.lessonId),
+      eq(lessonsTable.moduleId, params.data.moduleId),
+    ))
+    .limit(1);
+  if (!existingLesson) {
+    res.status(404).json({ error: "Lesson not found" });
+    return;
+  }
+
+  const chapterCode = parsed.data.qflowChapterCode === undefined
+    ? existingLesson.qflowChapterCode
+    : normalizedChapterCode(parsed.data.qflowChapterCode);
+  const codeError = await validateChapterCode(chapterCode, existingLesson.id);
+  if (codeError) {
+    res.status(409).json({ error: codeError });
+    return;
+  }
+  const chapterId = parsed.data.qflowChapterId === undefined
+    ? existingLesson.qflowChapterId
+    : parsed.data.qflowChapterId;
+  const linkError = await validateChapterLink(existingLesson.id, chapterId);
+  if (linkError) {
+    res.status(400).json({ error: linkError });
+    return;
+  }
+
   const [lesson] = await db
     .update(lessonsTable)
-    .set(parsed.data)
+    .set({
+      ...parsed.data,
+      qflowChapterCode: chapterCode,
+      qflowChapterId: chapterId,
+    })
     .where(
       and(
         eq(lessonsTable.id, params.data.lessonId),
@@ -174,6 +358,16 @@ router.delete("/modules/:moduleId/lessons/:lessonId", requireAdmin, async (req, 
   const params = DeleteLessonParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [linkedLesson] = await db
+    .select({ id: lessonsTable.id })
+    .from(lessonsTable)
+    .where(eq(lessonsTable.qflowChapterId, params.data.lessonId))
+    .limit(1);
+  if (linkedLesson) {
+    res.status(409).json({ error: "This chapter has linked Q-banks. Unlink them before deleting the chapter." });
     return;
   }
 

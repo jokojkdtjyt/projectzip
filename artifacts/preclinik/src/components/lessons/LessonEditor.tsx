@@ -11,10 +11,11 @@ import {
   useUpdateQuestion,
   useDeleteQuestion,
   listQuestions,
+  listLessons,
   getListLessonsQueryKey,
   getListQuestionsQueryKey,
 } from '@workspace/api-client-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@clerk/react';
 import { startUpload } from '@/lib/uploadManager';
 import {
@@ -67,6 +68,8 @@ interface VideoFormData {
   youtubeUrl: string;
   isFree: boolean;
   summary: string;
+  qflowChapterCode: string;
+  qflowChapterId: string;
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────
@@ -382,6 +385,8 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
   const [activeTab, setActiveTab] = useState<'video' | 'qbank'>('video');
   const [qbank, setQbank] = useState<LocalQuestion[]>([]);
   const [saving, setSaving] = useState(false);
+  const [showQflowLinkPicker, setShowQflowLinkPicker] = useState(false);
+  const [linkModuleId, setLinkModuleId] = useState('');
 
   // Video source toggle: 'bunny' | 'youtube'
   const [videoSource, setVideoSource] = useState<'bunny' | 'youtube'>(
@@ -394,6 +399,20 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
   const [bunnyVideoId, setBunnyVideoId] = useState<string | null>((lesson as any)?.bunnyVideoId ?? null);
 
   const { data: modules = [] } = useListModules();
+  const moduleLessons = useQueries({
+    queries: modules.map((module) => ({
+      queryKey: getListLessonsQueryKey(module.id),
+      queryFn: () => listLessons(module.id),
+    })),
+  });
+  const chapterChoices = moduleLessons.flatMap((query, index) =>
+    (query.data ?? [])
+      .filter((candidate) => candidate.id !== lesson?.id && !candidate.qflowChapterId)
+      .map((candidate) => ({
+        ...candidate,
+        moduleTitle: modules[index]?.title ?? candidate.moduleId,
+      })),
+  );
   const createLessonMut = useCreateLesson();
   const updateLessonMut = useUpdateLesson();
   const createQMut = useCreateQuestion();
@@ -401,7 +420,7 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
   const deleteQMut = useDeleteQuestion();
 
   // Form
-  const { register, handleSubmit, formState: { errors }, watch } = useForm<VideoFormData>({
+  const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<VideoFormData>({
     defaultValues: {
       title: lesson?.title || '',
       duration: lesson?.duration || '',
@@ -412,9 +431,17 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
       youtubeUrl: (lesson as any)?.youtubeUrl || '',
       isFree: (lesson as any)?.isFree ?? false,
       summary: lesson?.summary || '',
+      qflowChapterCode: lesson?.qflowChapterCode || '',
+      qflowChapterId: lesson?.qflowChapterId || '',
     },
   });
   const watchedTitle = watch('title');
+  const qflowChapterIdValue = watch('qflowChapterId');
+  const linkedChapterChoice = chapterChoices.find((chapter) => chapter.id === qflowChapterIdValue);
+  const destinationModuleId = linkedChapterChoice?.moduleId || linkModuleId;
+  const destinationModules = [...new Map(
+    chapterChoices.map((chapter) => [chapter.moduleId, chapter.moduleTitle]),
+  ).entries()].map(([id, title]) => ({ id, title }));
 
   // Load existing questions when editing
   useEffect(() => {
@@ -482,6 +509,8 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
         youtubeUrl: videoSource === 'youtube' ? (formData.youtubeUrl || null) : null,
         isFree: formData.isFree,
         sortOrder: lesson?.sortOrder ?? 99,
+        qflowChapterCode: formData.qflowChapterCode.trim().toUpperCase() || suggestChapterCode(moduleId, formData.title),
+        qflowChapterId: formData.qflowChapterId || null,
       };
 
       let resolvedLessonId: string;
@@ -612,6 +641,21 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
                     className="w-full h-12 px-4 rounded-xl border border-border bg-white focus:ring-2 focus:ring-primary outline-none transition-all text-sm"
                   />
                   {errors.title && <p className="text-red-500 text-xs">{errors.title.message}</p>}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-mono font-bold uppercase tracking-widest text-muted-foreground">Stable QFLOW chapter ID</label>
+                  <input
+                    {...register('qflowChapterCode')}
+                    placeholder="e.g. PHY-COM-LIQUID-01"
+                    maxLength={80}
+                    className="w-full h-12 px-4 rounded-xl border border-border bg-white font-mono uppercase focus:ring-2 focus:ring-primary outline-none transition-all text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {watch('qflowChapterCode')?.trim()
+                      ? 'This ID is shown in the admin lesson list and in QFLOW.'
+                      : `Leave blank to generate ${suggestChapterCode(moduleId, watchedTitle || 'chapter title')}.`}
+                  </p>
                 </div>
 
                 {/* 2+3. Duration + Type */}
@@ -760,7 +804,7 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
                   <div>
                     <h3 className="font-serif font-bold text-lg text-foreground">Lesson-specific Q-bank</h3>
                     <p className="text-sm text-muted-foreground mt-0.5">
-                      Questions added here appear only under this video's Q-bank tab.
+                      Questions added here stay attached to this lesson and can also be grouped under a QFLOW chapter.
                     </p>
                   </div>
                   <button
@@ -770,6 +814,61 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
                   >
                     <Plus className="w-4 h-4" /> Add Q
                   </button>
+                </div>
+
+                <div className="rounded-2xl border border-primary/15 bg-primary/[0.035] p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-mono font-bold uppercase tracking-widest text-foreground">QFLOW chapter link (optional)</div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {qflowChapterIdValue ? 'This Q-bank is grouped under another chapter.' : 'This lesson currently uses its own QFLOW chapter.'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowQflowLinkPicker((show) => !show)}
+                      className="rounded-xl border border-primary/25 bg-white px-3 py-2 text-xs font-bold text-primary transition-colors hover:bg-primary/5"
+                    >
+                      {qflowChapterIdValue ? 'Change / unlink chapter' : 'Link to a module and chapter'}
+                    </button>
+                  </div>
+                  {(showQflowLinkPicker || qflowChapterIdValue) && (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <select
+                        aria-label="Select QFLOW destination module"
+                        value={destinationModuleId}
+                        onChange={(event) => {
+                          setLinkModuleId(event.target.value);
+                          setValue('qflowChapterId', '', { shouldDirty: true });
+                        }}
+                        className="h-12 w-full rounded-xl border border-border bg-white px-4 text-sm font-semibold outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="">Choose a module</option>
+                        {destinationModules.map((destinationModule) => (
+                          <option key={destinationModule.id} value={destinationModule.id}>{destinationModule.title}</option>
+                        ))}
+                      </select>
+                      <select
+                        id="qflow-chapter-link"
+                        aria-label="Select QFLOW destination chapter"
+                        {...register('qflowChapterId')}
+                        disabled={!destinationModuleId}
+                        className="h-12 w-full rounded-xl border border-border bg-white px-4 text-sm font-semibold outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <option value="">Keep this lesson as its own chapter</option>
+                        {chapterChoices
+                          .filter((chapter) => chapter.moduleId === destinationModuleId)
+                          .map((chapter) => (
+                            <option key={chapter.id} value={chapter.id}>
+                              {chapter.title} · {chapter.qflowChapterCode || chapter.id}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    Linked questions appear in both this lesson’s Q-bank and the destination QFLOW chapter. The video stays in this module. Save the lesson to apply or remove the link.
+                  </p>
                 </div>
 
                 {/* Empty state */}
@@ -833,4 +932,16 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
       </div>
     </>
   );
+}
+
+function suggestChapterCode(moduleId: string, title: string) {
+  const normalized = `${moduleId}-${title}`
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80)
+    .replace(/-+$/g, '');
+  return normalized || 'QFLOW-CHAPTER';
 }

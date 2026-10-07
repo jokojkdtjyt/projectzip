@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useParams, Link } from 'wouter';
-import { useGetModule, useListLessons, useListPurchased, useAddToCart, useGetCart, getGetCartQueryKey, getListPurchasedQueryKey, getExtraHeaders } from '@workspace/api-client-react';
+import { useGetModule, useListLessons, useListPurchased, useAddToCart, useGetCart, getGetModuleQueryKey, getListLessonsQueryKey, getGetCartQueryKey, getListPurchasedQueryKey, getExtraHeaders } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@clerk/react';
 import { toast } from 'sonner';
@@ -17,8 +17,8 @@ export default function ModuleDetail() {
   
   const queryClient = useQueryClient();
   const { getToken } = useAuth();
-  const { data: module, isLoading: moduleLoading } = useGetModule(id, { query: { enabled: !!id } });
-  const { data: lessons } = useListLessons(id, { query: { enabled: !!id } });
+  const { data: module, isLoading: moduleLoading } = useGetModule(id, { query: { enabled: !!id, queryKey: getGetModuleQueryKey(id ?? '') } });
+  const { data: lessons } = useListLessons(id, { query: { enabled: !!id, queryKey: getListLessonsQueryKey(id ?? '') } });
   const { data: purchasedList } = useListPurchased();
   const { data: cart } = useGetCart();
   const { data: pendingSessions } = usePendingModules();

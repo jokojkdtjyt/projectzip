@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, boolean, integer, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -16,7 +16,12 @@ export const lessonsTable = pgTable("lessons", {
   youtubeUrl: text("youtube_url"),
   isFree: boolean("is_free").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
-});
+  qflowChapterCode: text("qflow_chapter_code"),
+  qflowChapterId: text("qflow_chapter_id"),
+}, (table) => [
+  uniqueIndex("lessons_qflow_chapter_code_unique").on(table.qflowChapterCode),
+  index("lessons_qflow_chapter_id_idx").on(table.qflowChapterId),
+]);
 
 export const insertLessonSchema = createInsertSchema(lessonsTable);
 export type InsertLesson = z.infer<typeof insertLessonSchema>;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'wouter';
-import { useGetModule, useGetLesson, useListLessons, getExtraHeaders } from '@workspace/api-client-react';
+import { useGetModule, useGetLesson, useListLessons, getGetModuleQueryKey, getGetLessonQueryKey, getListLessonsQueryKey, getExtraHeaders } from '@workspace/api-client-react';
 import { useAuth } from '@clerk/react';
 import { useQuery } from '@tanstack/react-query';
 import { PlayCircle, CheckCircle, LayoutList, ChevronRight, FileText, Lock, Loader2 } from 'lucide-react';
@@ -88,9 +88,9 @@ export default function LessonPlayer() {
   const videoRef = useRef<HTMLIFrameElement>(null);
   const lastVideoEventRef = useRef<string | null>(null);
 
-  const { data: module } = useGetModule(moduleId, { query: { enabled: !!moduleId } });
-  const { data: lesson, isLoading } = useGetLesson(moduleId, lessonId, { query: { enabled: !!moduleId && !!lessonId } });
-  const { data: lessons } = useListLessons(moduleId, { query: { enabled: !!moduleId } });
+  const { data: module } = useGetModule(moduleId, { query: { enabled: !!moduleId, queryKey: getGetModuleQueryKey(moduleId) } });
+  const { data: lesson, isLoading } = useGetLesson(moduleId, lessonId, { query: { enabled: !!moduleId && !!lessonId, queryKey: getGetLessonQueryKey(moduleId, lessonId) } });
+  const { data: lessons } = useListLessons(moduleId, { query: { enabled: !!moduleId, queryKey: getListLessonsQueryKey(moduleId) } });
 
   useEffect(() => {
     if (!lesson || !module) return;

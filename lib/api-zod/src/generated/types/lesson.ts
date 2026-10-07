@@ -29,5 +29,15 @@ export interface Lesson {
   /** @nullable */
   youtubeUrl?: string | null;
   isFree?: boolean;
+  /**
+     * Stable, admin-managed chapter code shown in QFLOW
+     * @nullable
+     */
+  qflowChapterCode?: string | null;
+  /**
+     * Optional destination chapter for this lesson's questions
+     * @nullable
+     */
+  qflowChapterId?: string | null;
   questionCount?: number;
 }

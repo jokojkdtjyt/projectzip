@@ -18,9 +18,11 @@ export interface Module {
   rating: number;
   students: number;
   price: number;
-  /** null = tier disabled */
+  /** @nullable */
   price3Month?: number | null;
+  /** @nullable */
   price1Year?: number | null;
+  /** @nullable */
   priceLifetime?: number | null;
   duration: string;
   published: boolean;
@@ -43,9 +45,13 @@ export interface ModuleInput {
   rating?: number;
   students?: number;
   price?: number;
+  /** @nullable */
   price3Month?: number | null;
+  /** @nullable */
   price1Year?: number | null;
+  /** @nullable */
   priceLifetime?: number | null;
+  isFree?: boolean;
   duration: string;
   published?: boolean;
   icon: string;
@@ -54,7 +60,6 @@ export interface ModuleInput {
   year: string;
   summary: string;
   outcomes?: string[];
-  isFree?: boolean;
 }
 
 export interface ModuleUpdate {
@@ -65,9 +70,13 @@ export interface ModuleUpdate {
   rating?: number;
   students?: number;
   price?: number;
+  /** @nullable */
   price3Month?: number | null;
+  /** @nullable */
   price1Year?: number | null;
+  /** @nullable */
   priceLifetime?: number | null;
+  isFree?: boolean;
   duration?: string;
   published?: boolean;
   icon?: string;
@@ -76,17 +85,6 @@ export interface ModuleUpdate {
   year?: string;
   summary?: string;
   outcomes?: string[];
-  isFree?: boolean;
-}
-
-/** Purchase with tier and expiry info */
-export interface PurchasedDetail {
-  moduleId: string;
-  /** '3month' | '1year' | 'lifetime' */
-  tier: string;
-  /** ISO string or null for lifetime */
-  expiresAt: string | null;
-  isExpired: boolean;
 }
 
 export type LessonType = typeof LessonType[keyof typeof LessonType];
@@ -120,6 +118,16 @@ export interface Lesson {
   /** @nullable */
   youtubeUrl?: string | null;
   isFree?: boolean;
+  /**
+     * Stable, admin-managed chapter code shown in QFLOW
+     * @nullable
+     */
+  qflowChapterCode?: string | null;
+  /**
+     * Optional destination chapter for this lesson's questions
+     * @nullable
+     */
+  qflowChapterId?: string | null;
   questionCount?: number;
 }
 
@@ -148,6 +156,10 @@ export interface LessonInput {
   youtubeUrl?: string | null;
   isFree?: boolean;
   sortOrder?: number;
+  /** @nullable */
+  qflowChapterCode?: string | null;
+  /** @nullable */
+  qflowChapterId?: string | null;
 }
 
 export type LessonUpdateType = typeof LessonUpdateType[keyof typeof LessonUpdateType];
@@ -174,6 +186,10 @@ export interface LessonUpdate {
   youtubeUrl?: string | null;
   isFree?: boolean;
   sortOrder?: number;
+  /** @nullable */
+  qflowChapterCode?: string | null;
+  /** @nullable */
+  qflowChapterId?: string | null;
 }
 
 export interface Question {
@@ -224,10 +240,6 @@ export interface CartItem {
   moduleId: string;
   title: string;
   price: number;
-  /** null = tier disabled */
-  price3Month?: number | null;
-  price1Year?: number | null;
-  priceLifetime?: number | null;
   category: string;
   duration: string;
 }

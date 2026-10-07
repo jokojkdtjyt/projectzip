@@ -15,6 +15,12 @@ export interface Module {
   rating: number;
   students: number;
   price: number;
+  /** @nullable */
+  price3Month?: number | null;
+  /** @nullable */
+  price1Year?: number | null;
+  /** @nullable */
+  priceLifetime?: number | null;
   duration: string;
   published: boolean;
   icon: string;

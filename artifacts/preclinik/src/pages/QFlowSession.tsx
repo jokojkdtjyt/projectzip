@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Bookmark, Check, Clipboard, Flag, Lightbulb, List, Loader2, Pause, Play, RotateCcw, Timer, X, Zap } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { listQuestions, type Question, useGetModule, useListLessons } from "@workspace/api-client-react";
+import { getGetModuleQueryKey, getListQflowChaptersQueryKey, listQflowChapterQuestions, type Question, useGetModule, useListQflowChapters } from "@workspace/api-client-react";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/googleAnalytics";
 import { readQFlowProfile } from "./QFlowSetup";
@@ -17,8 +17,8 @@ export default function QFlowSession() {
   const moduleId = params.get("module") ?? "";
   const lessonIds = (params.get("lessons") ?? "").split(",").filter(Boolean);
   const profile = useMemo(() => readQFlowProfile(), []);
-  const { data: module } = useGetModule(moduleId, { query: { enabled: !!moduleId } });
-  const { data: lessons } = useListLessons(moduleId, { query: { enabled: !!moduleId } });
+  const { data: module } = useGetModule(moduleId, { query: { enabled: !!moduleId, queryKey: getGetModuleQueryKey(moduleId) } });
+  const { data: lessons } = useListQflowChapters(moduleId, { query: { enabled: !!moduleId, queryKey: getListQflowChaptersQueryKey(moduleId) } });
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [answers, setAnswers] = useState<Record<number, number>>({});
@@ -31,7 +31,7 @@ export default function QFlowSession() {
     queryKey: ["/qflow/session/questions", moduleId, ...lessonIds],
     enabled: !!moduleId && lessonIds.length > 0,
     queryFn: async () => {
-      const results = await Promise.all(lessonIds.map((lessonId) => listQuestions(moduleId, lessonId)));
+      const results = await Promise.all(lessonIds.map((lessonId) => listQflowChapterQuestions(moduleId, lessonId)));
       const titleMap = new Map((lessons ?? []).map((lesson) => [lesson.id, lesson.title]));
       return results.flat().map((question) => ({ ...question, lessonTitle: titleMap.get(question.lessonId) ?? "Selected chapter" }));
     },

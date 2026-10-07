@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronRight, CircleHelp, Clock3, ListChecks, Loader2, Sparkles } from "lucide-react";
 import { Link, useLocation, useParams } from "wouter";
-import { useGetModule, useListLessons } from "@workspace/api-client-react";
+import { getGetModuleQueryKey, getListQflowChaptersQueryKey, useGetModule, useListQflowChapters } from "@workspace/api-client-react";
 import { trackEvent } from "@/lib/googleAnalytics";
 import { readQFlowProfile } from "./QFlowSetup";
 
@@ -9,8 +9,8 @@ export default function QFlowModuleSelection() {
   const { moduleId = "" } = useParams<{ moduleId: string }>();
   const [, setLocation] = useLocation();
   const profile = useMemo(() => readQFlowProfile(), []);
-  const { data: module, isLoading: moduleLoading } = useGetModule(moduleId, { query: { enabled: !!moduleId } });
-  const { data: lessons, isLoading: lessonsLoading } = useListLessons(moduleId, { query: { enabled: !!moduleId } });
+  const { data: module, isLoading: moduleLoading } = useGetModule(moduleId, { query: { enabled: !!moduleId, queryKey: getGetModuleQueryKey(moduleId) } });
+  const { data: lessons, isLoading: lessonsLoading } = useListQflowChapters(moduleId, { query: { enabled: !!moduleId, queryKey: getListQflowChaptersQueryKey(moduleId) } });
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
@@ -103,7 +103,12 @@ export default function QFlowModuleSelection() {
                   {selected ? <Check className="h-4 w-4" /> : String(index + 1).padStart(2, "0")}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block font-serif text-base font-bold text-foreground sm:text-lg">{lesson.title}</span>
+                  <span className="flex flex-wrap items-center gap-2 font-serif text-base font-bold text-foreground sm:text-lg">
+                    {lesson.title}
+                    <span className="rounded-md bg-[#f7f3ec] px-2 py-0.5 font-mono text-[9px] font-bold tracking-wide text-primary">
+                      {lesson.qflowChapterCode || lesson.id.toUpperCase()}
+                    </span>
+                  </span>
                   <span className="mt-1 block truncate text-xs text-muted-foreground">{lesson.summary || "Questions focused on this chapter."}</span>
                 </span>
                 <span className="hidden shrink-0 items-center gap-4 text-xs text-muted-foreground sm:flex">

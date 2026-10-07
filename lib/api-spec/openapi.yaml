@@ -165,6 +165,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/Lesson"
 
+  /qflow/modules/{moduleId}/chapters:
+    get:
+      operationId: listQflowChapters
+      tags: [lessons]
+      summary: List QFLOW chapters and their linked question counts
+      parameters:
+        - $ref: "#/components/parameters/moduleId"
+      responses:
+        "200":
+          description: QFLOW chapters for a module
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lesson"
+
+  /qflow/modules/{moduleId}/chapters/{chapterId}/questions:
+    get:
+      operationId: listQflowChapterQuestions
+      tags: [questions]
+      summary: List questions grouped under a QFLOW chapter
+      parameters:
+        - $ref: "#/components/parameters/moduleId"
+        - $ref: "#/components/parameters/chapterId"
+      responses:
+        "200":
+          description: Questions belonging to the chapter and lessons linked to it
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Question"
+        "404":
+          description: Chapter not found
+
   /modules/{moduleId}/lessons/{lessonId}:
     get:
       operationId: getLesson
@@ -438,6 +475,12 @@ components:
       required: true
       schema:
         type: string
+    chapterId:
+      name: chapterId
+      in: path
+      required: true
+      schema:
+        type: string
     questionId:
       name: questionId
       in: path
@@ -474,6 +517,7 @@ components:
         - outcomes
         - lessonCount
         - liveLessonCount
+        - isFree
       properties:
         id:
           type: string
@@ -491,6 +535,12 @@ components:
           type: integer
         price:
           type: integer
+        price3Month:
+          type: ["integer", "null"]
+        price1Year:
+          type: ["integer", "null"]
+        priceLifetime:
+          type: ["integer", "null"]
         duration:
           type: string
         published:
@@ -511,6 +561,8 @@ components:
           type: integer
         liveLessonCount:
           type: integer
+        isFree:
+          type: boolean
 
     ModuleInput:
       type: object
@@ -541,6 +593,14 @@ components:
           type: integer
         price:
           type: integer
+        price3Month:
+          type: ["integer", "null"]
+        price1Year:
+          type: ["integer", "null"]
+        priceLifetime:
+          type: ["integer", "null"]
+        isFree:
+          type: boolean
         duration:
           type: string
         published:
@@ -575,6 +635,14 @@ components:
           type: integer
         price:
           type: integer
+        price3Month:
+          type: ["integer", "null"]
+        price1Year:
+          type: ["integer", "null"]
+        priceLifetime:
+          type: ["integer", "null"]
+        isFree:
+          type: boolean
         duration:
           type: string
         published:
@@ -627,6 +695,16 @@ components:
         bunnyVideoId:
           type: ["string", "null"]
           description: Bunny Stream video ID for this lesson
+        youtubeUrl:
+          type: ["string", "null"]
+        isFree:
+          type: boolean
+        qflowChapterCode:
+          type: ["string", "null"]
+          description: Stable, admin-managed chapter code shown in QFLOW
+        qflowChapterId:
+          type: ["string", "null"]
+          description: Optional destination chapter for this lesson's questions
         questionCount:
           type: integer
 
@@ -655,8 +733,16 @@ components:
           type: ["string", "null"]
         videoUrl:
           type: ["string", "null"]
+        youtubeUrl:
+          type: ["string", "null"]
+        isFree:
+          type: boolean
         sortOrder:
           type: integer
+        qflowChapterCode:
+          type: ["string", "null"]
+        qflowChapterId:
+          type: ["string", "null"]
 
     LessonUpdate:
       type: object
@@ -676,8 +762,16 @@ components:
           type: ["string", "null"]
         videoUrl:
           type: ["string", "null"]
+        youtubeUrl:
+          type: ["string", "null"]
+        isFree:
+          type: boolean
         sortOrder:
           type: integer
+        qflowChapterCode:
+          type: ["string", "null"]
+        qflowChapterId:
+          type: ["string", "null"]
 
     Question:
       type: object

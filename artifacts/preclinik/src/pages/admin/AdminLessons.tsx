@@ -11,7 +11,7 @@ export default function AdminLessons() {
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
 
   const { data: lessons, isLoading: lessonsLoading } = useListLessons(selectedModuleId, {
-    query: { enabled: !!selectedModuleId },
+    query: { enabled: !!selectedModuleId, queryKey: getListLessonsQueryKey(selectedModuleId) },
   });
   
   const deleteMut = useDeleteLesson();
@@ -120,6 +120,10 @@ export default function AdminLessons() {
                     <td className="p-5">
                       <div className="font-bold text-foreground text-sm mb-1">{lesson.title}</div>
                       <div className="text-xs text-muted-foreground font-mono">{lesson.summary || 'No summary'}</div>
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[10px]">
+                        <span className="text-primary">QFLOW ID: {lesson.qflowChapterCode || lesson.id.toUpperCase()}</span>
+                        {lesson.qflowChapterId && <span className="text-[#8b6421]">Q-bank linked to chapter: {lesson.qflowChapterId}</span>}
+                      </div>
                     </td>
                     <td className="p-5 text-sm text-foreground font-mono font-bold">{lesson.type}</td>
                     <td className="p-5 text-sm text-foreground font-mono">{lesson.duration}</td>

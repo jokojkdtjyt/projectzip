@@ -35,7 +35,7 @@ export function ModuleCard({ module, variant = 'store' }: ModuleCardProps) {
   const isLibrary = variant === 'library';
 
   // In library mode we skip cart queries — they're not needed and add noise.
-  const { data: cart } = useGetCart({ query: { enabled: !isLibrary } });
+  const { data: cart } = useGetCart({ query: { enabled: !isLibrary, queryKey: getGetCartQueryKey() } });
   const { data: purchasedList } = useListPurchased();
   const { data: pendingSessions } = usePendingModules();
   const { data: rejectedModules } = useRejectedModules();

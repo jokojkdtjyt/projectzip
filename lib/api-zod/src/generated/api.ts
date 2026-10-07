@@ -44,7 +44,8 @@ export const ListModulesResponseItem = zod.object({
   "summary": zod.string(),
   "outcomes": zod.array(zod.string()),
   "lessonCount": zod.number(),
-  "liveLessonCount": zod.number()
+  "liveLessonCount": zod.number(),
+  "isFree": zod.boolean()
 })
 export const ListModulesResponse = zod.array(ListModulesResponseItem)
 
@@ -64,14 +65,14 @@ export const CreateModuleBody = zod.object({
   "price3Month": zod.number().nullish(),
   "price1Year": zod.number().nullish(),
   "priceLifetime": zod.number().nullish(),
+  "isFree": zod.boolean().optional(),
   "duration": zod.string(),
   "published": zod.boolean().optional(),
   "icon": zod.string(),
   "gradient": zod.string().nullish(),
   "year": zod.string(),
   "summary": zod.string(),
-  "outcomes": zod.array(zod.string()).optional(),
-  "isFree": zod.boolean().optional()
+  "outcomes": zod.array(zod.string()).optional()
 })
 
 export const CreateModuleResponse = zod.object({
@@ -149,14 +150,14 @@ export const UpdateModuleBody = zod.object({
   "price3Month": zod.number().nullish(),
   "price1Year": zod.number().nullish(),
   "priceLifetime": zod.number().nullish(),
+  "isFree": zod.boolean().optional(),
   "duration": zod.string().optional(),
   "published": zod.boolean().optional(),
   "icon": zod.string().optional(),
   "gradient": zod.string().nullish(),
   "year": zod.string().optional(),
   "summary": zod.string().optional(),
-  "outcomes": zod.array(zod.string()).optional(),
-  "isFree": zod.boolean().optional()
+  "outcomes": zod.array(zod.string()).optional()
 })
 
 export const UpdateModuleResponse = zod.object({
@@ -215,6 +216,8 @@ export const ListLessonsResponseItem = zod.object({
   "bunnyVideoId": zod.string().nullish().describe('Bunny Stream video ID for this lesson'),
   "youtubeUrl": zod.string().nullish(),
   "isFree": zod.boolean().optional(),
+  "qflowChapterCode": zod.string().nullish().describe('Stable, admin-managed chapter code shown in QFLOW'),
+  "qflowChapterId": zod.string().nullish().describe('Optional destination chapter for this lesson\'s questions'),
   "questionCount": zod.number().optional()
 })
 export const ListLessonsResponse = zod.array(ListLessonsResponseItem)
@@ -238,7 +241,9 @@ export const CreateLessonBody = zod.object({
   "videoUrl": zod.string().nullish(),
   "youtubeUrl": zod.string().nullish(),
   "isFree": zod.boolean().optional(),
-  "sortOrder": zod.number().optional()
+  "sortOrder": zod.number().optional(),
+  "qflowChapterCode": zod.string().nullish(),
+  "qflowChapterId": zod.string().nullish()
 })
 
 export const CreateLessonResponse = zod.object({
@@ -255,8 +260,62 @@ export const CreateLessonResponse = zod.object({
   "bunnyVideoId": zod.string().nullish().describe('Bunny Stream video ID for this lesson'),
   "youtubeUrl": zod.string().nullish(),
   "isFree": zod.boolean().optional(),
+  "qflowChapterCode": zod.string().nullish().describe('Stable, admin-managed chapter code shown in QFLOW'),
+  "qflowChapterId": zod.string().nullish().describe('Optional destination chapter for this lesson\'s questions'),
   "questionCount": zod.number().optional()
 })
+
+
+/**
+ * @summary List QFLOW chapters and their linked question counts
+ */
+export const ListQflowChaptersParams = zod.object({
+  "moduleId": zod.coerce.string()
+})
+
+export const ListQflowChaptersResponseItem = zod.object({
+  "id": zod.string(),
+  "moduleId": zod.string(),
+  "title": zod.string(),
+  "duration": zod.string(),
+  "type": zod.enum(['Video', 'Reading', 'Quiz']),
+  "published": zod.boolean(),
+  "summary": zod.string().nullish(),
+  "videoTitle": zod.string().nullish(),
+  "videoUrl": zod.string().nullish(),
+  "sortOrder": zod.number(),
+  "bunnyVideoId": zod.string().nullish().describe('Bunny Stream video ID for this lesson'),
+  "youtubeUrl": zod.string().nullish(),
+  "isFree": zod.boolean().optional(),
+  "qflowChapterCode": zod.string().nullish().describe('Stable, admin-managed chapter code shown in QFLOW'),
+  "qflowChapterId": zod.string().nullish().describe('Optional destination chapter for this lesson\'s questions'),
+  "questionCount": zod.number().optional()
+})
+export const ListQflowChaptersResponse = zod.array(ListQflowChaptersResponseItem)
+
+
+/**
+ * @summary List questions grouped under a QFLOW chapter
+ */
+export const ListQflowChapterQuestionsParams = zod.object({
+  "moduleId": zod.coerce.string(),
+  "chapterId": zod.coerce.string()
+})
+
+export const listQflowChapterQuestionsResponseOptionsMin = 5;
+export const listQflowChapterQuestionsResponseOptionsMax = 5;
+
+
+
+export const ListQflowChapterQuestionsResponseItem = zod.object({
+  "id": zod.number(),
+  "lessonId": zod.string(),
+  "question": zod.string(),
+  "options": zod.array(zod.string()).min(listQflowChapterQuestionsResponseOptionsMin).max(listQflowChapterQuestionsResponseOptionsMax),
+  "correct": zod.number(),
+  "comment": zod.string()
+})
+export const ListQflowChapterQuestionsResponse = zod.array(ListQflowChapterQuestionsResponseItem)
 
 
 /**
@@ -281,6 +340,8 @@ export const GetLessonResponse = zod.object({
   "bunnyVideoId": zod.string().nullish().describe('Bunny Stream video ID for this lesson'),
   "youtubeUrl": zod.string().nullish(),
   "isFree": zod.boolean().optional(),
+  "qflowChapterCode": zod.string().nullish().describe('Stable, admin-managed chapter code shown in QFLOW'),
+  "qflowChapterId": zod.string().nullish().describe('Optional destination chapter for this lesson\'s questions'),
   "questionCount": zod.number().optional()
 })
 
@@ -303,7 +364,9 @@ export const UpdateLessonBody = zod.object({
   "videoUrl": zod.string().nullish(),
   "youtubeUrl": zod.string().nullish(),
   "isFree": zod.boolean().optional(),
-  "sortOrder": zod.number().optional()
+  "sortOrder": zod.number().optional(),
+  "qflowChapterCode": zod.string().nullish(),
+  "qflowChapterId": zod.string().nullish()
 })
 
 export const UpdateLessonResponse = zod.object({
@@ -320,6 +383,8 @@ export const UpdateLessonResponse = zod.object({
   "bunnyVideoId": zod.string().nullish().describe('Bunny Stream video ID for this lesson'),
   "youtubeUrl": zod.string().nullish(),
   "isFree": zod.boolean().optional(),
+  "qflowChapterCode": zod.string().nullish().describe('Stable, admin-managed chapter code shown in QFLOW'),
+  "qflowChapterId": zod.string().nullish().describe('Optional destination chapter for this lesson\'s questions'),
   "questionCount": zod.number().optional()
 })
 
