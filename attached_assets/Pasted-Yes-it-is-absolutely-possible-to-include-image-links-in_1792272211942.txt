@@ -1,0 +1,87 @@
+Yes, it is absolutely possible to include image links in your PDF!
+If your PDF includes standard image URLs (e.g., https://example.com), the text extractor will read them as text, and we can instruct the OpenAI API to capture those links cleanly. The frontend quiz will then read those URLs and display the actual images directly inside the question or commentary cards.
+Here is your updated, complete, and watertight prompt for Replit Agent with image support included.
+
+📋 Copy and Paste this Prompt into Replit Agent
+
+text
+You are an expert full-stack engineer building a specialized SaaS platform called "QBank Studio." The application must be fully functional, error-free, and deployable on Replit using Python (FastAPI/Flask) for the backend, a modern frontend UI (React or vanilla JS with Tailwind CSS), and SUPABASE as the entire backend-as-a-service (Database, Auth, and Storage).
+
+### 1. SUPABASE INTEGRATION & CORE ARCHITECTURE
+- Integrate the Supabase Python SDK on the backend and Supabase JS SDK on the frontend.
+- Use Supabase Auth to handle user authentication with simple role-based separation:
+  - Admin View: Access to the PDF Uploader, Processing logs, and Video Recording Studio.
+  - User View: A student dashboard where they can see assigned QBanks and take them as interactive quizzes.
+- Use Supabase Storage: Create a bucket named "explanation-videos" to store recorded video lectures.
+
+### 2. SUPABASE DATABASE SCHEMA (POSTGRESQL)
+Generate and execute migrations or setup code to create these tables in Supabase with strict relationships:
+- qbanks (id UUID primary key, title TEXT, created_at TIMESTAMPTZ)
+- chapters (id UUID primary key, qbank_id UUID references qbanks(id) ON DELETE CASCADE, chapter_name TEXT, video_url TEXT)
+- questions (id UUID primary key, chapter_id UUID references chapters(id) ON DELETE CASCADE, question_number INT, question_text TEXT, correct_option_index INT, commentary TEXT, image_url TEXT)
+- options (id UUID primary key, question_id UUID references questions(id) ON DELETE CASCADE, option_text TEXT, option_index INT)
+- user_progress (id UUID primary key, user_id UUID, question_id UUID references questions(id), selected_option_index INT, is_correct BOOLEAN, answered_at TIMESTAMPTZ)
+
+### 3. PHASE 1: THE PDF PARSER & STRUCTURED AI EXTRACTION (WITH IMAGE LINK SUPPORT)
+- When an Admin uploads a PDF, the backend must instantly extract its text using a robust library like `pdfplumber` or `pypdf`.
+- The PDF text may contain embedded image links/URLs (e.g., web links pointing to diagrams or medical images). The parser must capture these URLs.
+- The system must immediately send this raw text to the OpenAI API (use GPT-4o with Structured Outputs / JSON Mode via client.beta.chat.completions.parse to ensure 100% data integrity).
+- The prompt sent to OpenAI must strictly demand a JSON format matching this exact schema, making sure to isolate any image links found in the text into the `image_url` field:
+  {
+    "qbank_title": "String",
+    "chapters": [
+      {
+        "chapter_name": "String",
+        "questions": [
+          {
+            "question_number": Integer,
+            "question_text": "String",
+            "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
+            "correct_option_index": Integer (0 for A, 1 for B, etc.),
+            "commentary": "String",
+            "image_url": "String or null (If a web image link/URL is found inside or attached to this question text, extract it here)"
+          }
+        ]
+      }
+    ]
+  }
+- Process the PDF text in manageable chunks to avoid token limits, loop through the resulting JSON object, and insert the parsed data into the Supabase `qbanks`, `chapters`, `questions`, and `options` tables cleanly.
+
+### 4. PHASE 2: THE ADMIN DASHBOARD & RECORDING STUDIO
+- PDF Uploader: A drag-and-drop zone that accepts PDFs, displays a loading spinner ("AI is parsing your QBank and writing to Supabase..."), and redirects to the studio on success.
+- The Studio Board: Embed an open-source whiteboard tool like `tldraw` or a highly polished HTML5 Canvas component.
+- The Admin can select a Chapter, view the content as a layout reference, and record their screen and audio using the browser's native MediaRecorder API (`navigator.mediaDevices.getDisplayMedia` or canvas streaming + microphone).
+- When the Admin clicks "Stop & Save Video", the browser must automatically upload the resulting video file blob directly to the Supabase Storage bucket (`explanation-videos`). Upon successful upload, grab the public/signed URL and update the `video_url` column for that specific Chapter in the Supabase `chapters` table.
+
+### 5. PHASE 3: THE USER INTERACTIVE QUIZ UI (WITH VISUALS)
+- Students only see an elegant grid of available QBanks fetched directly from Supabase.
+- Clicking a QBank loads an interactive, self-paced quiz layout:
+  - Left Side: The question text and multiple-choice options rendered as large, clickable buttons.
+  - Image Rendering: If the question has a valid `image_url` saved in Supabase, cleanly render that image directly below the question text using a styled `<img>` tag before the options appear.
+  - Interactive Logic: When a user clicks an option:
+    1. Immediately freeze the buttons.
+    2. Turn the chosen option Red (if wrong) and the correct option Green.
+    3. Instantly slide down a card showing the "Commentary / Explanation".
+    4. Save the user's attempt state to the Supabase `user_progress` table.
+  - Right Side: Check if `video_url` exists for this chapter in Supabase. If it does, display a beautiful HTML5 video player playing that recorded explanation.
+  - Include navigation buttons ("Next Question", "Previous Question") and a progress tracker.
+
+### 6. EXTRA ROBUSTNESS REQUIREMENTS (NO HOLES)
+- Pull all required credentials securely using Replit Secrets / Environment Variables: `SUPABASE_URL`, `SUPABASE_KEY`, and `OPENAI_API_KEY`.
+- Provide clean error handlers on the frontend for failed file uploads, invalid PDF structures, or API timeouts so the app never hangs indefinitely.
+- Ensure all styling uses Tailwind CSS for a modern, responsive appearance.
+Use code with caution.
+
+📝 Sample Text Formatting to Test Your App
+
+When you ready your first PDF to test the app, structure its text contents similar to this format so the parser gets it perfectly on the first try:
+Chapter 1: Anatomy Fundamentals
+Question 1
+Which organ is primarily responsible for pumping blood throughout the human body?
+Image Link: unsplash.com
+A) Lungs
+B) Heart
+C) Liver
+D) Kidneys
+Commentary: The heart is a muscular organ in most animals, which pumps blood through the blood vessels of the circulatory system.
+If you run into any issues when Replit tries to connect your Supabase Storage bucket policies, just let me know and I can give you the exact SQL snippet to paste into Supabase to make the video files publicly readable!
