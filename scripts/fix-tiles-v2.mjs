@@ -1,6 +1,7 @@
 import https from "node:https";
 
-const API_KEY = "REDACTED_POSTHOG_PERSONAL_API_KEY";
+const API_KEY = process.env.POSTHOG_PERSONAL_API_KEY;
+if (!API_KEY) throw new Error("POSTHOG_PERSONAL_API_KEY is required");
 const PROJECT_ID = "230774";
 const BASE = `https://eu.posthog.com/api/projects/${PROJECT_ID}`;
 const HEADERS = { "Content-Type": "application/json", Authorization: `Bearer ${API_KEY}` };
