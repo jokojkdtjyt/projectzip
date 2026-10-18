@@ -115,7 +115,7 @@ export default function QFlowSession() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-primary">{module?.title ?? "QFLOW"} · {currentQuestion.lessonTitle}</p>
-                <h1 className="mt-2 font-serif text-2xl font-bold sm:text-3xl">Question {questionIndex + 1} <span className="font-sans text-base font-normal text-muted-foreground">of {questions.length}</span></h1>
+                <h1 className="mt-2 font-serif text-2xl font-bold sm:text-3xl">Question {currentQuestion.questionNumber ?? questionIndex + 1} <span className="font-sans text-base font-normal text-muted-foreground">of {questions.length}</span></h1>
               </div>
               <div className="rounded-xl bg-white px-3 py-2 text-right shadow-sm ring-1 ring-border">
                 <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Your progress</div>
@@ -129,6 +129,15 @@ export default function QFlowSession() {
                 <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{profile?.year ?? "Medical school"}</div>
               </div>
               <h2 className="mt-7 max-w-4xl font-serif text-xl font-bold leading-relaxed sm:text-2xl">{currentQuestion.question}</h2>
+              {currentQuestion.imageUrl && /^https?:\/\//i.test(currentQuestion.imageUrl) && (
+                <img
+                  src={currentQuestion.imageUrl}
+                  alt="Question illustration"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  className="mt-5 max-h-[28rem] max-w-full rounded-2xl border border-border bg-secondary/30 object-contain"
+                />
+              )}
               <div className="mt-7 space-y-3">
                 {currentQuestion.options.map((option, index) => {
                   const isSelected = selectedAnswer === index;

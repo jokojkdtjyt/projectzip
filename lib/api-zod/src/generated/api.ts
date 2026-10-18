@@ -306,6 +306,9 @@ export const listQflowChapterQuestionsResponseOptionsMin = 5;
 export const listQflowChapterQuestionsResponseOptionsMax = 5;
 
 
+export const listQflowChapterQuestionsResponseImageUrlMax = 2048;
+
+
 
 export const ListQflowChapterQuestionsResponseItem = zod.object({
   "id": zod.number(),
@@ -313,7 +316,9 @@ export const ListQflowChapterQuestionsResponseItem = zod.object({
   "question": zod.string(),
   "options": zod.array(zod.string()).min(listQflowChapterQuestionsResponseOptionsMin).max(listQflowChapterQuestionsResponseOptionsMax),
   "correct": zod.number(),
-  "comment": zod.string()
+  "comment": zod.string(),
+  "questionNumber": zod.number().min(1).nullable(),
+  "imageUrl": zod.string().max(listQflowChapterQuestionsResponseImageUrlMax).nullable()
 })
 export const ListQflowChapterQuestionsResponse = zod.array(ListQflowChapterQuestionsResponseItem)
 
@@ -412,6 +417,9 @@ export const listQuestionsResponseOptionsMin = 5;
 export const listQuestionsResponseOptionsMax = 5;
 
 
+export const listQuestionsResponseImageUrlMax = 2048;
+
+
 
 export const ListQuestionsResponseItem = zod.object({
   "id": zod.number(),
@@ -419,7 +427,9 @@ export const ListQuestionsResponseItem = zod.object({
   "question": zod.string(),
   "options": zod.array(zod.string()).min(listQuestionsResponseOptionsMin).max(listQuestionsResponseOptionsMax),
   "correct": zod.number(),
-  "comment": zod.string()
+  "comment": zod.string(),
+  "questionNumber": zod.number().min(1).nullable(),
+  "imageUrl": zod.string().max(listQuestionsResponseImageUrlMax).nullable()
 })
 export const ListQuestionsResponse = zod.array(ListQuestionsResponseItem)
 
@@ -436,16 +446,24 @@ export const createQuestionBodyOptionsMin = 5;
 export const createQuestionBodyOptionsMax = 5;
 
 
+export const createQuestionBodyImageUrlMax = 2048;
+
+
 
 export const CreateQuestionBody = zod.object({
   "question": zod.string(),
   "options": zod.array(zod.string()).min(createQuestionBodyOptionsMin).max(createQuestionBodyOptionsMax),
   "correct": zod.number(),
-  "comment": zod.string()
+  "comment": zod.string(),
+  "questionNumber": zod.number().min(1).nullish(),
+  "imageUrl": zod.string().max(createQuestionBodyImageUrlMax).nullish()
 })
 
 export const createQuestionResponseOptionsMin = 5;
 export const createQuestionResponseOptionsMax = 5;
+
+
+export const createQuestionResponseImageUrlMax = 2048;
 
 
 
@@ -455,7 +473,9 @@ export const CreateQuestionResponse = zod.object({
   "question": zod.string(),
   "options": zod.array(zod.string()).min(createQuestionResponseOptionsMin).max(createQuestionResponseOptionsMax),
   "correct": zod.number(),
-  "comment": zod.string()
+  "comment": zod.string(),
+  "questionNumber": zod.number().min(1).nullable(),
+  "imageUrl": zod.string().max(createQuestionResponseImageUrlMax).nullable()
 })
 
 
@@ -472,16 +492,24 @@ export const updateQuestionBodyOptionsMin = 5;
 export const updateQuestionBodyOptionsMax = 5;
 
 
+export const updateQuestionBodyImageUrlMax = 2048;
+
+
 
 export const UpdateQuestionBody = zod.object({
   "question": zod.string().optional(),
   "options": zod.array(zod.string()).min(updateQuestionBodyOptionsMin).max(updateQuestionBodyOptionsMax).optional(),
   "correct": zod.number().optional(),
-  "comment": zod.string().optional()
+  "comment": zod.string().optional(),
+  "questionNumber": zod.number().min(1).nullish(),
+  "imageUrl": zod.string().max(updateQuestionBodyImageUrlMax).nullish()
 })
 
 export const updateQuestionResponseOptionsMin = 5;
 export const updateQuestionResponseOptionsMax = 5;
+
+
+export const updateQuestionResponseImageUrlMax = 2048;
 
 
 
@@ -491,7 +519,9 @@ export const UpdateQuestionResponse = zod.object({
   "question": zod.string(),
   "options": zod.array(zod.string()).min(updateQuestionResponseOptionsMin).max(updateQuestionResponseOptionsMax),
   "correct": zod.number(),
-  "comment": zod.string()
+  "comment": zod.string(),
+  "questionNumber": zod.number().min(1).nullable(),
+  "imageUrl": zod.string().max(updateQuestionResponseImageUrlMax).nullable()
 })
 
 
@@ -505,6 +535,39 @@ export const DeleteQuestionParams = zod.object({
 })
 
 export const DeleteQuestionResponse = zod.void()
+
+
+/**
+ * @summary Extract editable Q-bank question drafts from a PDF locally (admin)
+ */
+export const ParseQbankPdfParams = zod.object({
+  "moduleId": zod.coerce.string()
+})
+
+
+export const parseQbankPdfResponseQuestionsItemOptionsMin = 5;
+export const parseQbankPdfResponseQuestionsItemOptionsMax = 5;
+
+export const parseQbankPdfResponseQuestionsItemCorrectMin = 0;
+export const parseQbankPdfResponseQuestionsItemCorrectMax = 4;
+
+export const parseQbankPdfResponseQuestionsItemImageUrlMax = 2048;
+
+
+
+export const ParseQbankPdfResponse = zod.object({
+  "totalPages": zod.number(),
+  "ocrPages": zod.number(),
+  "questions": zod.array(zod.object({
+  "questionNumber": zod.number().min(1),
+  "question": zod.string(),
+  "options": zod.array(zod.string()).min(parseQbankPdfResponseQuestionsItemOptionsMin).max(parseQbankPdfResponseQuestionsItemOptionsMax),
+  "correct": zod.number().min(parseQbankPdfResponseQuestionsItemCorrectMin).max(parseQbankPdfResponseQuestionsItemCorrectMax),
+  "comment": zod.string(),
+  "imageUrl": zod.string().max(parseQbankPdfResponseQuestionsItemImageUrlMax).nullable(),
+  "warnings": zod.array(zod.string())
+}))
+})
 
 
 /**

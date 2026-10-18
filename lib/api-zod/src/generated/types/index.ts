@@ -12,6 +12,8 @@ export * from './cart';
 export * from './cartItem';
 export * from './checkoutResult';
 export * from './healthStatus';
+export * from './importQbankPdfResponse';
+export * from './importQbankQuestion';
 export * from './lesson';
 export * from './lessonInput';
 export * from './lessonInputType';

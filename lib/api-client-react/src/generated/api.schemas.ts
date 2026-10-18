@@ -203,6 +203,16 @@ export interface Question {
   options: string[];
   correct: number;
   comment: string;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  questionNumber: number | null;
+  /**
+     * @maxLength 2048
+     * @nullable
+     */
+  imageUrl: string | null;
 }
 
 export interface QuestionInput {
@@ -214,6 +224,16 @@ export interface QuestionInput {
   options: string[];
   correct: number;
   comment: string;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  questionNumber?: number | null;
+  /**
+     * @maxLength 2048
+     * @nullable
+     */
+  imageUrl?: string | null;
 }
 
 export interface QuestionUpdate {
@@ -225,6 +245,45 @@ export interface QuestionUpdate {
   options?: string[];
   correct?: number;
   comment?: string;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  questionNumber?: number | null;
+  /**
+     * @maxLength 2048
+     * @nullable
+     */
+  imageUrl?: string | null;
+}
+
+export interface ImportQbankQuestion {
+  /** @minimum 1 */
+  questionNumber: number;
+  question: string;
+  /**
+     * @minItems 5
+     * @maxItems 5
+     */
+  options: string[];
+  /**
+     * @minimum 0
+     * @maximum 4
+     */
+  correct: number;
+  comment: string;
+  /**
+     * @maxLength 2048
+     * @nullable
+     */
+  imageUrl: string | null;
+  warnings: string[];
+}
+
+export interface ImportQbankPdfResponse {
+  totalPages: number;
+  ocrPages: number;
+  questions: ImportQbankQuestion[];
 }
 
 /**
@@ -271,5 +330,22 @@ export interface AdminStudent {
 export type ListModulesParams = {
 published?: boolean;
 search?: string;
+};
+
+export type ParseQbankPdfBodyOcrLanguage = typeof ParseQbankPdfBodyOcrLanguage[keyof typeof ParseQbankPdfBodyOcrLanguage];
+
+
+export const ParseQbankPdfBodyOcrLanguage = {
+  eng: 'eng',
+  fra: 'fra',
+  ara: 'ara',
+  'eng+fra': 'eng+fra',
+  'eng+ara': 'eng+ara',
+  'eng+fra+ara': 'eng+fra+ara',
+} as const;
+
+export type ParseQbankPdfBody = {
+  file: Blob;
+  ocrLanguage?: ParseQbankPdfBodyOcrLanguage;
 };
 

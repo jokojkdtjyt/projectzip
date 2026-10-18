@@ -194,6 +194,8 @@ router.get("/qflow/modules/:moduleId/chapters/:chapterId/questions", async (req,
       options: questionsTable.options,
       correct: questionsTable.correct,
       comment: questionsTable.comment,
+      questionNumber: questionsTable.questionNumber,
+      imageUrl: questionsTable.imageUrl,
     })
     .from(questionsTable)
     .innerJoin(lessonsTable, eq(questionsTable.lessonId, lessonsTable.id))

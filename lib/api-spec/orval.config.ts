@@ -13,6 +13,13 @@ const titleTransformer: InputTransformerFn = (config) => {
   return config;
 };
 
+const zodTransformer: InputTransformerFn = (config) => {
+  titleTransformer(config);
+  const parsePdfOperation = config.paths?.["/modules/{moduleId}/questions/parse-pdf"]?.post;
+  if (parsePdfOperation) delete parsePdfOperation.requestBody;
+  return config;
+};
+
 export default defineConfig({
   "api-client-react": {
     input: {
@@ -44,7 +51,7 @@ export default defineConfig({
     input: {
       target: "./openapi.yaml",
       override: {
-        transformer: titleTransformer,
+        transformer: zodTransformer,
       },
     },
     output: {

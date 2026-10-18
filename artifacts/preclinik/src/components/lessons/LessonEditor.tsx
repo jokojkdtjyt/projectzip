@@ -10,6 +10,8 @@ import {
   useCreateQuestion,
   useUpdateQuestion,
   useDeleteQuestion,
+  useParseQbankPdf,
+  type ParseQbankPdfBodyOcrLanguage,
   listQuestions,
   listLessons,
   getListLessonsQueryKey,
@@ -19,9 +21,9 @@ import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@clerk/react';
 import { startUpload } from '@/lib/uploadManager';
 import {
-  X, Save, Plus, Upload, ChevronDown, ChevronUp,
+  X, Save, Plus, ChevronDown, ChevronUp,
   Trash2, Copy, Film, BookOpen, AlertCircle, Video, FileText, HelpCircle,
-  CheckCircle2, Loader2, CloudUpload,
+  CheckCircle2, Loader2, CloudUpload, Link,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -37,20 +39,23 @@ interface LocalQuestion {
   options: [string, string, string, string, string];
   correct: number; // 0–4
   comment: string;
-  imageName: string;
-  imageFile?: File;
+  questionNumber: number | null;
+  imageUrl: string;
+  importWarnings: string[];
   expanded: boolean;
   saved: boolean;
 }
 
-function blankQuestion(): LocalQuestion {
+function blankQuestion(questionNumber: number): LocalQuestion {
   return {
     localId: nextLocalId(),
     q: '',
     options: ['', '', '', '', ''],
     correct: 0,
     comment: '',
-    imageName: '',
+    questionNumber,
+    imageUrl: '',
+    importWarnings: [],
     expanded: true,
     saved: false,
   };
@@ -219,9 +224,16 @@ function QuestionItem({
   const handleCollapse = () => update({ saved: true, expanded: false });
   const handleSave = () => {
     if (!q.q.trim()) { toast.error('Question text cannot be empty'); return; }
-    update({ saved: true, expanded: false });
+    update({ saved: true, expanded: false, importWarnings: [] });
   };
-  const imgRef = useRef<HTMLInputElement>(null);
+  const imagePreviewUrl = (() => {
+    try {
+      const url = new URL(q.imageUrl.trim());
+      return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
+    } catch {
+      return null;
+    }
+  })();
 
   // ── Collapsed/saved view ──
   if (q.saved && !q.expanded) {
@@ -233,7 +245,7 @@ function QuestionItem({
       >
         <div className="p-4 flex items-start gap-3">
           <div className="w-7 h-7 rounded-lg bg-green-50 text-green-700 flex items-center justify-center shrink-0 mt-0.5">
-            <span className="text-[10px] font-mono font-bold">Q{index + 1}</span>
+              <span className="text-[10px] font-mono font-bold">Q{q.questionNumber ?? index + 1}</span>
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-foreground leading-snug line-clamp-2">
@@ -243,9 +255,14 @@ function QuestionItem({
               <span className="px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-mono font-bold border border-green-200">
                 ✓ {correctLabel.slice(0, 40)}{correctLabel.length > 40 ? '…' : ''}
               </span>
-              {q.imageName && (
+              {q.imageUrl && (
                 <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-mono border border-blue-200">
-                  📎 {q.imageName}
+                  <Link className="inline w-3 h-3 mr-1" /> Image linked
+                </span>
+              )}
+              {!!q.importWarnings.length && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 text-[10px] font-mono border border-amber-200">
+                  Review {q.importWarnings.length} import warning{q.importWarnings.length === 1 ? '' : 's'}
                 </span>
               )}
             </div>
@@ -266,7 +283,7 @@ function QuestionItem({
     <div className="rounded-xl border-2 border-primary/20 bg-primary/5 shadow-sm">
       <div className="px-4 pt-4 pb-2 flex items-center justify-between">
         <span className="text-xs font-mono font-bold text-primary uppercase tracking-widest">
-          {q.saved ? `Editing question ${index + 1}` : `New question ${index + 1}`}
+          {q.saved ? `Editing question ${q.questionNumber ?? index + 1}` : `New question ${q.questionNumber ?? index + 1}`}
         </span>
         <button type="button" onClick={onRemove} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
           <Trash2 className="w-4 h-4" />
@@ -274,6 +291,28 @@ function QuestionItem({
       </div>
 
       <div className="px-4 pb-4 space-y-4">
+        {!!q.importWarnings.length && (
+          <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+            <strong>Review this import:</strong>
+            <ul className="mt-1 list-disc pl-5">
+              {q.importWarnings.map((warning, warningIndex) => <li key={warningIndex}>{warning}</li>)}
+            </ul>
+          </div>
+        )}
+
+        {/* Manual question number */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-mono font-bold uppercase tracking-widest text-muted-foreground">Question number</label>
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={q.questionNumber ?? ''}
+            onChange={(e) => update({ questionNumber: e.target.value ? Math.max(1, Number.parseInt(e.target.value, 10)) : null })}
+            className="h-10 w-36 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+
         {/* Question text */}
         <div className="space-y-1.5">
           <label className="text-xs font-mono font-bold uppercase tracking-widest text-muted-foreground">Question text</label>
@@ -326,25 +365,25 @@ function QuestionItem({
           />
         </div>
 
-        {/* Optional image */}
+        {/* Optional image link */}
         <div className="space-y-1.5">
-          <label className="text-xs font-mono font-bold uppercase tracking-widest text-muted-foreground">Attach image (optional)</label>
-          <button
-            type="button"
-            onClick={() => imgRef.current?.click()}
-            className="w-full border-2 border-dashed border-border rounded-xl p-4 flex items-center gap-3 hover:border-primary/40 hover:bg-white/80 transition-all cursor-pointer"
-          >
-            <Upload className="w-5 h-5 text-muted-foreground shrink-0" />
-            <span className={`text-sm font-mono ${q.imageName ? 'text-primary font-bold' : 'text-muted-foreground'}`}>
-              {q.imageName || 'Attach ECG, histology, diagram, radiology image...'}
-            </span>
-          </button>
+          <label className="text-xs font-mono font-bold uppercase tracking-widest text-muted-foreground">Image URL (optional)</label>
           <input
-            ref={imgRef} type="file" accept="image/*" className="hidden"
-            onChange={(e) => {
-              if (e.target.files?.[0]) update({ imageName: e.target.files[0].name, imageFile: e.target.files[0] });
-            }}
+            type="url"
+            value={q.imageUrl}
+            onChange={(e) => update({ imageUrl: e.target.value })}
+            placeholder="https://…"
+            className="w-full h-10 rounded-xl border border-border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
+          {imagePreviewUrl && (
+            <img
+              src={imagePreviewUrl}
+              alt="Question illustration preview"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className="max-h-64 max-w-full rounded-xl border border-border object-contain"
+            />
+          )}
         </div>
 
         {/* Footer buttons */}
@@ -361,7 +400,7 @@ function QuestionItem({
             onClick={handleSave}
             className="px-4 py-2 text-sm font-bold bg-green-600 hover:bg-green-700 text-white rounded-xl transition-colors shadow-sm"
           >
-            Save Q{index + 1}
+            Save Q{q.questionNumber ?? index + 1}
           </button>
         </div>
       </div>
@@ -384,9 +423,15 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
 
   const [activeTab, setActiveTab] = useState<'video' | 'qbank'>('video');
   const [qbank, setQbank] = useState<LocalQuestion[]>([]);
+  const [qbankLoading, setQbankLoading] = useState(!!lesson);
+  const [qbankLoadError, setQbankLoadError] = useState(false);
+  const [questionLoadAttempt, setQuestionLoadAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [importingPdf, setImportingPdf] = useState(false);
+  const [ocrLanguage, setOcrLanguage] = useState<ParseQbankPdfBodyOcrLanguage>('eng+fra');
   const [showQflowLinkPicker, setShowQflowLinkPicker] = useState(false);
   const [linkModuleId, setLinkModuleId] = useState('');
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // Video source toggle: 'bunny' | 'youtube'
   const [videoSource, setVideoSource] = useState<'bunny' | 'youtube'>(
@@ -418,6 +463,7 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
   const createQMut = useCreateQuestion();
   const updateQMut = useUpdateQuestion();
   const deleteQMut = useDeleteQuestion();
+  const parsePdfMut = useParseQbankPdf();
 
   // Form
   const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm<VideoFormData>({
@@ -443,26 +489,49 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
     chapterChoices.map((chapter) => [chapter.moduleId, chapter.moduleTitle]),
   ).entries()].map(([id, title]) => ({ id, title }));
 
-  // Load existing questions when editing
+  // Load the existing bank before allowing edits or saves. This prevents a
+  // failed or unfinished request from making a PDF import replace old questions.
   useEffect(() => {
-    if (isEditing && lesson) {
-      listQuestions(moduleId, lesson.id).then((serverQs) => {
+    if (!lesson) {
+      setQbank([]);
+      setQbankLoading(false);
+      setQbankLoadError(false);
+      return;
+    }
+
+    let active = true;
+    setQbankLoading(true);
+    setQbankLoadError(false);
+    listQuestions(moduleId, lesson.id)
+      .then((serverQs) => {
+        if (!active) return;
         setQbank(
-          serverQs.map((sq) => ({
+          serverQs.map((sq, index) => ({
             localId: nextLocalId(),
             serverQId: sq.id,
             q: sq.question,
             options: (sq.options as string[]).concat(['', '', '', '', '']).slice(0, 5) as [string, string, string, string, string],
             correct: sq.correct,
             comment: sq.comment || '',
-            imageName: '',
+            questionNumber: sq.questionNumber ?? index + 1,
+            imageUrl: sq.imageUrl ?? '',
+            importWarnings: [],
             expanded: false,
             saved: true,
           }))
         );
-      }).catch(() => {});
-    }
-  }, []);
+      })
+      .catch(() => {
+        if (!active) return;
+        setQbankLoadError(true);
+        toast.error('Could not load the existing Q-bank. Retry before editing or saving to protect its questions.');
+      })
+      .finally(() => {
+        if (active) setQbankLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [moduleId, lesson?.id, questionLoadAttempt]);
 
   // Q-bank helpers
   const updateQ = useCallback((localId: string, updated: LocalQuestion) => {
@@ -477,11 +546,17 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
     setQbank((prev) => {
       const idx = prev.findIndex((q) => q.localId === localId);
       if (idx === -1) return prev;
+      const nextQuestionNumber = prev.reduce(
+        (largest, question, questionIndex) => Math.max(largest, question.questionNumber ?? questionIndex + 1),
+        0,
+      ) + 1;
       const clone: LocalQuestion = {
         ...prev[idx],
         localId: nextLocalId(),
         serverQId: undefined,
         q: prev[idx].q + ' (copy)',
+        questionNumber: nextQuestionNumber,
+        importWarnings: [],
         expanded: true,
         saved: false,
       };
@@ -491,10 +566,59 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
     });
   }, []);
 
-  const addQ = () => setQbank((prev) => [...prev, blankQuestion()]);
+  const addQ = () => setQbank((prev) => {
+    const nextQuestionNumber = prev.reduce(
+      (largest, question, questionIndex) => Math.max(largest, question.questionNumber ?? questionIndex + 1),
+      0,
+    ) + 1;
+    return [...prev, blankQuestion(nextQuestionNumber)];
+  });
+
+  const handlePdfFile = async (file?: File) => {
+    if (!file || qbankLoading || qbankLoadError) return;
+    setImportingPdf(true);
+    try {
+      const result = await parsePdfMut.mutateAsync({
+        moduleId,
+        data: { file, ocrLanguage },
+      });
+      setQbank((previous) => {
+        const lastNumber = previous.reduce(
+          (largest, question, index) => Math.max(largest, question.questionNumber ?? index + 1),
+          0,
+        );
+        const importedQuestions = result.questions.map((draft, index) => ({
+          localId: nextLocalId(),
+          q: draft.question,
+          options: draft.options.slice(0, 5) as [string, string, string, string, string],
+          correct: draft.correct,
+          comment: draft.comment,
+          questionNumber: lastNumber + index + 1,
+          imageUrl: draft.imageUrl ?? '',
+          importWarnings: draft.warnings,
+          expanded: true,
+          saved: false,
+        }));
+        return [...previous, ...importedQuestions];
+      });
+      toast.success(
+        `Added ${result.questions.length} question${result.questions.length === 1 ? '' : 's'} to the review list. ` +
+        `${result.ocrPages} scanned page${result.ocrPages === 1 ? '' : 's'} processed with local OCR.`,
+      );
+    } catch (error: any) {
+      toast.error(error?.message || 'Could not import questions from this PDF.');
+    } finally {
+      setImportingPdf(false);
+      if (pdfInputRef.current) pdfInputRef.current.value = '';
+    }
+  };
 
   // Save orchestration
   const onSave = async (formData: VideoFormData) => {
+    if (qbankLoading || qbankLoadError) {
+      toast.error('Load the existing Q-bank successfully before saving so current questions are protected.');
+      return;
+    }
     setSaving(true);
     try {
       const lessonPayload: LessonInput = {
@@ -550,12 +674,14 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
       ));
 
       // Create or update local questions
-      await Promise.all(qbank.map(async (q) => {
+      await Promise.all(qbank.map(async (q, index) => {
         const payload = {
           question: q.q || 'Question',
           options: q.options,
           correct: q.correct,
           comment: q.comment,
+          questionNumber: q.questionNumber ?? index + 1,
+          imageUrl: q.imageUrl.trim() || null,
         };
         if (q.serverQId != null && serverQIds.has(q.serverQId)) {
           await updateQMut.mutateAsync({ moduleId, lessonId: resolvedLessonId, questionId: q.serverQId, data: payload });
@@ -807,14 +933,73 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
                       Questions added here stay attached to this lesson and can also be grouped under a QFLOW chapter.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={addQ}
-                    className="shrink-0 flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white text-sm font-bold rounded-xl transition-colors shadow-sm"
-                  >
-                    <Plus className="w-4 h-4" /> Add Q
-                  </button>
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                    <select
+                      aria-label="OCR language"
+                      value={ocrLanguage}
+                      onChange={(event) => setOcrLanguage(event.target.value as ParseQbankPdfBodyOcrLanguage)}
+                      disabled={qbankLoading || qbankLoadError || importingPdf}
+                      className="h-10 rounded-xl border border-border bg-white px-3 text-xs font-semibold outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                    >
+                      <option value="eng+fra">English + French</option>
+                      <option value="eng">English</option>
+                      <option value="fra">French</option>
+                      <option value="ara">Arabic</option>
+                      <option value="eng+ara">English + Arabic</option>
+                      <option value="eng+fra+ara">English + French + Arabic</option>
+                    </select>
+                    <input
+                      ref={pdfInputRef}
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      className="hidden"
+                      onChange={(event) => { void handlePdfFile(event.target.files?.[0]); }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => pdfInputRef.current?.click()}
+                      disabled={qbankLoading || qbankLoadError || importingPdf}
+                      className="flex items-center gap-1.5 rounded-xl border border-primary/30 bg-white px-3 py-2 text-sm font-bold text-primary transition-colors hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {importingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                      {importingPdf ? 'Reading PDF…' : 'Import PDF'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addQ}
+                      disabled={qbankLoading || qbankLoadError}
+                      className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Plus className="h-4 w-4" /> Add Q
+                    </button>
+                  </div>
                 </div>
+
+                <div className="rounded-xl border border-border bg-secondary/40 p-3 text-xs leading-relaxed text-muted-foreground">
+                  PDF text is extracted locally; scanned pages use Tesseract OCR on this server. No AI-credit service is used.
+                  The PDF is temporary. New questions are appended to this lesson, then you can edit wording, options, answers,
+                  numbering, explanations, and image links before saving.
+                </div>
+
+                {qbankLoading && (
+                  <div className="flex items-center gap-2 rounded-xl border border-border bg-white p-4 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Loading the existing questions before enabling edits…
+                  </div>
+                )}
+                {qbankLoadError && (
+                  <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+                    <p className="text-sm text-red-800">
+                      Existing questions could not be loaded. Importing and saving are paused to protect the current Q-bank.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setQuestionLoadAttempt((attempt) => attempt + 1)}
+                      className="rounded-lg border border-red-300 bg-white px-3 py-2 text-xs font-bold text-red-800 hover:bg-red-100"
+                    >
+                      Retry loading
+                    </button>
+                  </div>
+                )}
 
                 <div className="rounded-2xl border border-primary/15 bg-primary/[0.035] p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -872,7 +1057,7 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
                 </div>
 
                 {/* Empty state */}
-                {qbank.length === 0 && (
+                {qbank.length === 0 && !qbankLoading && !qbankLoadError && (
                   <div className="rounded-2xl border-2 border-dashed border-border p-10 text-center space-y-3">
                     <HelpCircle className="w-10 h-10 text-muted-foreground opacity-30 mx-auto" />
                     <p className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
@@ -921,11 +1106,11 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
             <button
               form="lesson-save-form"
               type="submit"
-              disabled={saving}
+              disabled={saving || qbankLoading || qbankLoadError}
               className="flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary/90 disabled:opacity-60 text-white font-bold rounded-xl transition-colors shadow-sm"
             >
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {saving ? 'Saving…' : (isEditing ? 'Save changes' : 'Create lesson')}
+              {saving ? 'Saving…' : qbankLoading ? 'Loading questions…' : qbankLoadError ? 'Q-bank load failed' : (isEditing ? 'Save changes' : 'Create lesson')}
             </button>
           </div>
         </div>

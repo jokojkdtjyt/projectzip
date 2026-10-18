@@ -330,6 +330,41 @@ paths:
         "404":
           description: Not found
 
+  /modules/{moduleId}/questions/parse-pdf:
+    post:
+      operationId: parseQbankPdf
+      tags: [questions]
+      summary: Extract editable Q-bank question drafts from a PDF locally (admin)
+      parameters:
+        - $ref: "#/components/parameters/moduleId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                ocrLanguage:
+                  type: string
+                  enum: [eng, fra, ara, eng+fra, eng+ara, eng+fra+ara]
+      responses:
+        "200":
+          description: Extracted questions for review before saving
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportQbankPdfResponse"
+        "400":
+          description: Invalid upload
+        "413":
+          description: File or page limit exceeded
+        "422":
+          description: No questions could be extracted
+
   /progress:
     get:
       operationId: getProgress
@@ -782,6 +817,8 @@ components:
         - options
         - correct
         - comment
+        - questionNumber
+        - imageUrl
       properties:
         id:
           type: integer
@@ -799,6 +836,12 @@ components:
           type: integer
         comment:
           type: string
+        questionNumber:
+          type: ["integer", "null"]
+          minimum: 1
+        imageUrl:
+          type: ["string", "null"]
+          maxLength: 2048
 
     QuestionInput:
       type: object
@@ -820,6 +863,12 @@ components:
           type: integer
         comment:
           type: string
+        questionNumber:
+          type: ["integer", "null"]
+          minimum: 1
+        imageUrl:
+          type: ["string", "null"]
+          maxLength: 2048
 
     QuestionUpdate:
       type: object
@@ -836,6 +885,61 @@ components:
           type: integer
         comment:
           type: string
+        questionNumber:
+          type: ["integer", "null"]
+          minimum: 1
+        imageUrl:
+          type: ["string", "null"]
+          maxLength: 2048
+
+    ImportQbankQuestion:
+      type: object
+      required:
+        - questionNumber
+        - question
+        - options
+        - correct
+        - comment
+        - imageUrl
+        - warnings
+      properties:
+        questionNumber:
+          type: integer
+          minimum: 1
+        question:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+          minItems: 5
+          maxItems: 5
+        correct:
+          type: integer
+          minimum: 0
+          maximum: 4
+        comment:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+          maxLength: 2048
+        warnings:
+          type: array
+          items:
+            type: string
+
+    ImportQbankPdfResponse:
+      type: object
+      required: [totalPages, ocrPages, questions]
+      properties:
+        totalPages:
+          type: integer
+        ocrPages:
+          type: integer
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportQbankQuestion"
 
     ProgressMap:
       type: object

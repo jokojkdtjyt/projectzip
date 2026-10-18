@@ -25,6 +25,7 @@ import type {
   Cart,
   CheckoutResult,
   HealthStatus,
+  ImportQbankPdfResponse,
   Lesson,
   LessonInput,
   LessonUpdate,
@@ -32,6 +33,7 @@ import type {
   Module,
   ModuleInput,
   ModuleUpdate,
+  ParseQbankPdfBody,
   ProgressMap,
   ProgressUpdate,
   Question,
@@ -1360,6 +1362,83 @@ export const useDeleteQuestion = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDeleteQuestionMutationOptions(options));
+    }
+
+export const getParseQbankPdfUrl = (moduleId: string,) => {
+
+
+
+
+  return `/api/modules/${moduleId}/questions/parse-pdf`
+}
+
+/**
+ * @summary Extract editable Q-bank question drafts from a PDF locally (admin)
+ */
+export const parseQbankPdf = async (moduleId: string,
+    parseQbankPdfBody: ParseQbankPdfBody, options?: RequestInit): Promise<ImportQbankPdfResponse> => {
+    const formData = new FormData();
+formData.append(`file`, parseQbankPdfBody.file);
+if(parseQbankPdfBody.ocrLanguage !== undefined) {
+ formData.append(`ocrLanguage`, parseQbankPdfBody.ocrLanguage);
+ }
+
+  return customFetch<ImportQbankPdfResponse>(getParseQbankPdfUrl(moduleId),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body: formData
+  }
+);}
+
+
+
+
+
+export const getParseQbankPdfMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof parseQbankPdf>>, TError,{moduleId: string;data: BodyType<ParseQbankPdfBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof parseQbankPdf>>, TError,{moduleId: string;data: BodyType<ParseQbankPdfBody>}, TContext> => {
+
+const mutationKey = ['parseQbankPdf'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof parseQbankPdf>>, {moduleId: string;data: BodyType<ParseQbankPdfBody>}> = (props) => {
+          const {moduleId,data} = props ?? {};
+
+          return  parseQbankPdf(moduleId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ParseQbankPdfMutationResult = NonNullable<Awaited<ReturnType<typeof parseQbankPdf>>>
+    export type ParseQbankPdfMutationBody = BodyType<ParseQbankPdfBody>
+    export type ParseQbankPdfMutationError = ErrorType<void>
+
+    /**
+ * @summary Extract editable Q-bank question drafts from a PDF locally (admin)
+ */
+export const useParseQbankPdf = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof parseQbankPdf>>, TError,{moduleId: string;data: BodyType<ParseQbankPdfBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof parseQbankPdf>>,
+        TError,
+        {moduleId: string;data: BodyType<ParseQbankPdfBody>},
+        TContext
+      > => {
+      return useMutation(getParseQbankPdfMutationOptions(options));
     }
 
 export const getGetProgressUrl = () => {

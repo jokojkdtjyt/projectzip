@@ -9,6 +9,8 @@ export const questionsTable = pgTable("qbank_questions", {
   options: jsonb("options").$type<string[]>().notNull().default([]),
   correct: integer("correct").notNull().default(0),
   comment: text("comment").notNull().default(""),
+  questionNumber: integer("question_number"),
+  imageUrl: text("image_url"),
 });
 
 export const insertQuestionSchema = createInsertSchema(questionsTable).omit({ id: true });

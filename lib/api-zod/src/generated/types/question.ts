@@ -17,4 +17,14 @@ export interface Question {
   options: string[];
   correct: number;
   comment: string;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  questionNumber: number | null;
+  /**
+     * @maxLength 2048
+     * @nullable
+     */
+  imageUrl: string | null;
 }
