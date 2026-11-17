@@ -1,223 +1,89 @@
 import { Link } from "wouter";
-import {
-  ArrowRight,
-  Check,
-  ChevronRight,
-  Clock3,
-  Flame,
-  Layers3,
-  Sparkles,
-  Target,
-} from "lucide-react";
+import { ArrowRight, Check, ChevronRight, CircleHelp, Layers3, Target, Video } from "lucide-react";
 import { trackEvent } from "@/lib/googleAnalytics";
 
-const benefits = [
-  {
-    icon: Target,
-    title: "Exam-focused practice",
-    description:
-      "Train with carefully written questions that reflect the pace and pressure of medical exams.",
-  },
-  {
-    icon: Sparkles,
-    title: "Learn from every answer",
-    description:
-      "Understand why an option is right, not just whether you got it right.",
-  },
-  {
-    icon: Flame,
-    title: "Build your momentum",
-    description:
-      "Keep your streak alive, spot weak areas, and turn small sessions into real progress.",
-  },
-];
-
-const sampleQuestions = [
-  { label: "Anatomy", count: "420 questions", tone: "bg-[#f6e7e9] text-primary" },
-  { label: "Physiology", count: "680 questions", tone: "bg-[#f7f3ec] text-primary" },
-  { label: "Biochemistry", count: "350 questions", tone: "bg-[#f6e7e9] text-primary" },
+const principles = [
+  { icon: Target, title: "Practice by chapter", description: "Choose a module, select the chapters you need, and bring their questions into one session." },
+  { icon: CircleHelp, title: "Understand the answer", description: "Review the explanation after each response, so practice becomes a useful part of revision." },
+  { icon: Video, title: "Return to the teaching", description: "Open published video lessons linked to a chapter when you want to revisit the topic." },
 ];
 
 export default function QFlow() {
+  const trackCta = (location: string) => trackEvent("qflow_cta_click", { cta_location: location, page_path: "/qflow" });
+
   return (
-    <div className="min-h-screen overflow-hidden bg-[#f7f3ec] text-[#1a1211]">
-      <header className="relative z-10 border-b border-[#e8ddd5] bg-white/90 px-6 backdrop-blur-md">
-        <div className="mx-auto flex h-[72px] max-w-6xl items-center justify-between">
-          <Link href="/" className="group flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#f7f3ec] to-primary font-serif text-xl font-bold text-primary shadow-lg shadow-white/10 transition-transform group-hover:scale-105">
-              P
-            </div>
-            <div className="hidden sm:block">
-              <div className="font-serif text-lg font-bold leading-tight">PreClinik</div>
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                QFLOW by PreClinik
-              </div>
-            </div>
+    <div className="min-h-[100dvh] overflow-hidden bg-[#f6f3ed] text-[#252522]">
+      <header className="relative z-10 border-b border-[#e5dfd4] bg-[#fbfaf7]/95 px-5 backdrop-blur sm:px-8">
+        <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between">
+          <Link href="/" className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b1a2f]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#8b1a2f] font-serif text-lg font-bold text-white">P</span>
+            <span><span className="block font-serif text-base font-bold leading-tight">PreClinik</span><span className="font-mono text-[9px] uppercase tracking-[.2em] text-[#8b1a2f]">QFLOW</span></span>
           </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-                className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:block"
-            >
-              Back to PreClinik
-            </Link>
-            <Link
-              href="/sign-up"
-              onClick={() =>
-                trackEvent("qflow_cta_click", {
-                  cta_location: "qflow_header",
-                  page_path: "/qflow",
-                })
-              }
-              className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary/90"
-            >
-              Get started
-            </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/" className="hidden text-sm text-[#716b62] hover:text-[#252522] sm:block">Back to PreClinik</Link>
+            <Link href="/sign-up" onClick={() => trackCta("qflow_header")} className="rounded-lg bg-[#8b1a2f] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#741426] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#8b1a2f]">Get started</Link>
           </div>
         </div>
       </header>
 
       <main>
-        <section className="relative isolate">
-          <div className="pointer-events-none absolute -left-40 -top-40 h-[520px] w-[520px] rounded-full bg-primary/10 blur-3xl" />
-          <div className="pointer-events-none absolute -right-40 top-24 h-[480px] w-[480px] rounded-full bg-white/80 blur-3xl" />
-          <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-6 pb-24 pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-20 lg:pb-32 lg:pt-28">
+        <section className="relative">
+          <div className="pointer-events-none absolute -left-48 -top-48 h-[560px] w-[560px] rounded-full border border-[#8b1a2f]/10" />
+          <div className="pointer-events-none absolute -right-36 top-20 h-[460px] w-[460px] rounded-full bg-[#ded6c9]/45 blur-3xl" />
+          <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-5 pb-20 pt-16 sm:px-8 sm:pb-24 sm:pt-24 lg:grid-cols-[1.1fr_.9fr]">
             <div>
-              <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                The PreClinik question bank
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#d8c8bb] bg-[#fbfaf7] px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-[.16em] text-[#8b1a2f]"><span className="h-1.5 w-1.5 rounded-full bg-[#8b1a2f]" /> The PreClinik question bank</div>
+              <h1 className="mt-7 max-w-3xl font-serif text-5xl font-semibold leading-[1.02] tracking-[-.04em] sm:text-7xl">Make every question <span className="text-[#8b1a2f]">move you forward.</span></h1>
+              <p className="mt-6 max-w-xl text-base leading-7 text-[#716b62] sm:text-lg">QFLOW gives medical students a direct way to practice by module and chapter. Answer, review the explanation, and return to a linked teaching video when you need it.</p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link href="/qflow/practice" onClick={() => trackCta("qflow_hero")} className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#8b1a2f] px-6 py-3 font-bold text-white transition hover:-translate-y-0.5 hover:bg-[#741426] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#8b1a2f]">Browse QFLOW modules <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" /></Link>
+                <Link href="/catalog" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-[#ded8cd] bg-[#fbfaf7] px-6 py-3 font-bold text-[#39352f] transition-colors hover:border-[#c8b7a7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b1a2f]">Explore courses</Link>
               </div>
-              <h1 className="max-w-2xl font-serif text-5xl font-bold leading-[1.02] tracking-tight text-foreground sm:text-7xl">
-                Make every question{" "}
-                <span className="text-primary">move you forward.</span>
-              </h1>
-              <p className="mt-7 max-w-xl text-lg leading-relaxed text-muted-foreground">
-                QFLOW is the focused medical Q-bank for students who want less
-                guessing and more progress. Practice, review, repeat — until
-                the answer feels instinctive.
-              </p>
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  href="/qflow/setup"
-                  onClick={() =>
-                    trackEvent("qflow_cta_click", {
-                      cta_location: "qflow_hero",
-                      page_path: "/qflow",
-                    })
-                  }
-                  className="group inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 font-bold text-white shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:bg-primary/90"
-                >
-                  Start practicing free
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                </Link>
-                <Link
-                  href="/catalog"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#e8ddd5] bg-white px-6 py-3.5 font-bold text-foreground transition-colors hover:border-primary/30 hover:bg-[#f7f3ec]"
-                >
-                  Explore modules
-                </Link>
-              </div>
-              <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2 font-mono text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> Five-option questions</span>
-                <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> Detailed explanations</span>
-              </div>
+              <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 font-mono text-[10px] uppercase tracking-wide text-[#716b62]"><span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#8b1a2f]" /> Practice selected chapters</span><span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#8b1a2f]" /> Review answer explanations</span></div>
             </div>
 
-            <div className="relative mx-auto w-full max-w-md">
-              <div className="absolute -inset-5 rounded-[32px] border border-primary/10 bg-white/60 rotate-3" />
-              <div className="relative rounded-[28px] border border-[#e8ddd5] bg-white p-5 shadow-2xl shadow-[#8b1a2f]/10">
-                <div className="flex items-center justify-between border-b border-[#e8ddd5] pb-4">
-                  <div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-primary">QFLOW / DAILY MIX</div>
-                    <div className="mt-1 font-serif text-xl font-bold">Keep your flow</div>
-                  </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Flame className="h-5 w-5" />
-                  </div>
+            <div className="relative mx-auto w-full max-w-[470px]">
+              <div className="absolute -inset-4 rotate-2 rounded-[28px] border border-[#d8c8bb] bg-[#eee8df]" />
+              <div className="relative rounded-[24px] border border-[#e3ddd2] bg-[#fbfaf7] p-5 shadow-[0_24px_60px_rgba(45,37,29,.12)] sm:p-6">
+                <div className="flex items-center justify-between border-b border-[#e9e3d9] pb-4">
+                  <div><p className="font-mono text-[9px] uppercase tracking-[.2em] text-[#8b1a2f]">QFLOW · How it works</p><h2 className="mt-1 font-serif text-xl font-semibold">A clear path through revision</h2></div>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f2e8e5] text-[#8b1a2f]"><Layers3 className="h-5 w-5" /></span>
                 </div>
-                <div className="mt-5 rounded-2xl border border-[#e8ddd5] bg-[#f7f3ec] p-4">
-                  <div className="flex items-center justify-between font-mono text-[10px] text-muted-foreground">
-                    <span>QUESTION 08 / 20</span>
-                    <span className="flex items-center gap-1"><Clock3 className="h-3 w-3" /> 01:24</span>
-                  </div>
-                  <p className="mt-5 font-serif text-lg font-bold leading-snug">
-                    Which structure is primarily responsible for the filtration of blood in the renal corpuscle?
-                  </p>
-                  <div className="mt-5 space-y-2">
-                    {["The glomerular capillaries", "The loop of Henle", "The collecting duct", "The renal pelvis"].map((answer, index) => (
-                      <div key={answer} className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm ${index === 0 ? "border-primary/40 bg-primary/5 text-foreground" : "border-[#e8ddd5] bg-white/70 text-muted-foreground"}`}>
-                        <span className={`flex h-6 w-6 items-center justify-center rounded-lg font-mono text-xs ${index === 0 ? "bg-primary text-white" : "bg-[#e8ddd5] text-muted-foreground"}`}>
-                          {String.fromCharCode(65 + index)}
-                        </span>
-                        {answer}
-                      </div>
-                    ))}
-                  </div>
+                <div className="mt-5 space-y-3">
+                  {[["01", "Choose a module", "Start from the subject you are revising."], ["02", "Select chapters", "Include the question sets you want to practice."], ["03", "Review & reconnect", "Read feedback or open a linked video lesson."]].map(([number, title, text]) => (
+                    <div key={number} className="flex items-start gap-3 rounded-xl border border-[#e9e3d9] bg-[#f7f4ee] p-3.5">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#8b1a2f] font-mono text-[10px] font-bold text-white">{number}</span>
+                      <div><h3 className="text-sm font-bold">{title}</h3><p className="mt-1 text-xs leading-5 text-[#777168]">{text}</p></div>
+                    </div>
+                  ))}
                 </div>
-                <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1.5"><Layers3 className="h-3.5 w-3.5" /> Renal physiology</span>
-                  <span className="flex items-center gap-1 text-primary">Answer saved <Check className="h-3 w-3" /></span>
-                </div>
+                <div className="mt-4 flex items-center justify-between text-xs text-[#777168]"><span className="flex items-center gap-1.5"><Video className="h-3.5 w-3.5 text-[#8b1a2f]" /> Video lessons can link to chapters</span><span className="font-mono text-[9px] uppercase tracking-wide">QFLOW</span></div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="border-y border-[#e8ddd5] bg-white px-6 py-8">
-          <div className="mx-auto grid max-w-6xl gap-3 sm:grid-cols-3">
-            {sampleQuestions.map((item) => (
-              <div key={item.label} className="flex items-center justify-between rounded-2xl border border-[#e8ddd5] bg-[#f7f3ec] px-4 py-3">
-                <span className={`rounded-lg px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-wider ${item.tone}`}>{item.label}</span>
-                <span className="font-mono text-xs text-muted-foreground">{item.count}</span>
-              </div>
-            ))}
+        <section className="border-y border-[#e5dfd4] bg-[#fbfaf7] px-5 py-16 sm:px-8 sm:py-20">
+          <div className="mx-auto max-w-7xl">
+            <div className="max-w-2xl"><p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-[#8b1a2f]">Simple by design</p><h2 className="mt-3 font-serif text-3xl font-semibold leading-tight sm:text-4xl">Keep practice connected to what you are learning.</h2><p className="mt-4 text-sm leading-6 text-[#716b62] sm:text-base">The chapter is the bridge: questions for active recall, with related teaching close at hand.</p></div>
+            <div className="mt-9 grid gap-4 md:grid-cols-3">
+              {principles.map(({ icon: Icon, title, description }, index) => (
+                <article key={title} className={`rounded-2xl border border-[#e3ddd2] bg-[#f7f4ee] p-5 sm:p-6 ${index === 1 ? "md:translate-y-5" : ""}`}>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f2e8e5] text-[#8b1a2f]"><Icon className="h-5 w-5" /></span>
+                  <h3 className="mt-5 font-serif text-lg font-semibold">{title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-[#716b62]">{description}</p>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="mx-auto max-w-6xl px-6 py-24">
-          <div className="max-w-2xl">
-              <div className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-primary">Built for the long game</div>
-            <h2 className="mt-4 font-serif text-4xl font-bold leading-tight sm:text-5xl">A better rhythm for medical revision.</h2>
-            <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
-              QFLOW turns scattered revision into a clear daily practice. Every session gives you feedback you can use next time.
-            </p>
-          </div>
-          <div className="mt-12 grid gap-5 md:grid-cols-3">
-            {benefits.map((benefit) => {
-              const Icon = benefit.icon;
-              return (
-                <div key={benefit.title} className="rounded-[22px] border border-[#e8ddd5] bg-white p-6 shadow-sm">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <h3 className="mt-5 font-bold">{benefit.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{benefit.description}</p>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="border-t border-white/10 bg-[#f7f3ec] px-6 py-16 text-center text-[#211218]">
-          <h2 className="font-serif text-4xl font-bold">Your next right answer starts here.</h2>
-          <p className="mx-auto mt-4 max-w-lg text-[#211218]/70">Join PreClinik and build a question practice that compounds every day.</p>
-           <Link
-              href="/qflow/setup"
-             onClick={() =>
-               trackEvent("qflow_cta_click", {
-                 cta_location: "qflow_footer",
-                 page_path: "/qflow",
-               })
-             }
-             className="mt-7 inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3.5 font-bold text-white transition-colors hover:bg-primary/90"
-           >
-            Enter QFLOW <ChevronRight className="h-4 w-4" />
-          </Link>
-          <div className="mx-auto mt-12 flex max-w-6xl items-center justify-center gap-4 border-t border-[#211218]/15 pt-5 font-mono text-xs text-[#211218]/55">
-            <span>© {new Date().getFullYear()} PreClinik</span>
-            <span>·</span>
-            <Link href="/terms" className="hover:text-[#211218]">Terms & Privacy</Link>
-          </div>
+        <section className="px-5 py-16 text-center sm:px-8 sm:py-20">
+          <p className="font-mono text-[10px] font-bold uppercase tracking-[.2em] text-[#8b1a2f]">Start with a chapter</p>
+          <h2 className="mx-auto mt-3 max-w-2xl font-serif text-3xl font-semibold sm:text-4xl">Your next revision session starts with a clear choice.</h2>
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-[#716b62]">Browse the currently published QFLOW modules and choose where to begin.</p>
+          <Link href="/qflow/practice" onClick={() => trackCta("qflow_footer")} className="mt-7 inline-flex min-h-12 items-center gap-2 rounded-xl bg-[#8b1a2f] px-6 py-3 font-bold text-white transition-colors hover:bg-[#741426] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#8b1a2f]">Browse modules <ChevronRight className="h-4 w-4" /></Link>
+          <footer className="mx-auto mt-14 flex max-w-7xl flex-wrap items-center justify-center gap-4 border-t border-[#ddd6ca] pt-5 font-mono text-[10px] text-[#777168]"><span>© {new Date().getFullYear()} PreClinik</span><span aria-hidden="true">·</span><Link href="/terms" className="hover:text-[#252522]">Terms & Privacy</Link></footer>
         </section>
       </main>
     </div>

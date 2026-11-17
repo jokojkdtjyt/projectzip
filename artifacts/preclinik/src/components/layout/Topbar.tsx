@@ -241,7 +241,7 @@ export function Topbar({ role, setRole }: TopbarProps) {
                 PreClinik
               </span>
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-mono leading-none">
-                Medical Modules
+                QFLOW · Medical Learning
               </span>
             </div>
           </Link>
@@ -264,6 +264,18 @@ export function Topbar({ role, setRole }: TopbarProps) {
           <Show when="signed-in">
             <nav className="hidden lg:flex items-center gap-1">
               <Link
+                href="/"
+                onClick={() =>
+                  trackEvent("qflow_cta_click", {
+                    cta_location: "topbar",
+                    page_path: window.location.pathname,
+                  })
+                }
+                className="px-3 py-1.5 rounded-full text-sm font-bold text-primary hover:bg-primary/10 transition-colors"
+              >
+                QFLOW
+              </Link>
+              <Link
                 href="/catalog"
                 className="px-3 py-1.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition-colors"
               >
@@ -274,18 +286,6 @@ export function Topbar({ role, setRole }: TopbarProps) {
                 className="px-3 py-1.5 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/70 transition-colors"
               >
                 My learning
-              </Link>
-              <Link
-                href="/qflow"
-                onClick={() =>
-                  trackEvent("qflow_cta_click", {
-                    cta_location: "topbar",
-                    page_path: window.location.pathname,
-                  })
-                }
-                className="px-3 py-1.5 rounded-full text-sm font-bold text-primary hover:bg-primary/10 transition-colors"
-              >
-                QFLOW
               </Link>
             </nav>
           </Show>

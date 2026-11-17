@@ -742,6 +742,28 @@ components:
           description: Optional destination chapter for this lesson's questions
         questionCount:
           type: integer
+        linkedLessons:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkedLessonSummary"
+
+    LinkedLessonSummary:
+      type: object
+      required: [id, moduleId, title, type, duration, published]
+      properties:
+        id:
+          type: string
+        moduleId:
+          type: string
+        title:
+          type: string
+        type:
+          type: string
+          enum: [Video, Reading, Quiz]
+        duration:
+          type: string
+        published:
+          type: boolean
 
     LessonInput:
       type: object

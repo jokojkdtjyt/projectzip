@@ -96,6 +96,24 @@ export const LessonType = {
   Quiz: 'Quiz',
 } as const;
 
+export type LinkedLessonSummaryType = typeof LinkedLessonSummaryType[keyof typeof LinkedLessonSummaryType];
+
+
+export const LinkedLessonSummaryType = {
+  Video: 'Video',
+  Reading: 'Reading',
+  Quiz: 'Quiz',
+} as const;
+
+export interface LinkedLessonSummary {
+  id: string;
+  moduleId: string;
+  title: string;
+  type: LinkedLessonSummaryType;
+  duration: string;
+  published: boolean;
+}
+
 export interface Lesson {
   id: string;
   moduleId: string;
@@ -129,6 +147,7 @@ export interface Lesson {
      */
   qflowChapterId?: string | null;
   questionCount?: number;
+  linkedLessons?: LinkedLessonSummary[];
 }
 
 export type LessonInputType = typeof LessonInputType[keyof typeof LessonInputType];

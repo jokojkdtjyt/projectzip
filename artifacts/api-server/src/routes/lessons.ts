@@ -146,9 +146,33 @@ router.get("/qflow/modules/:moduleId/chapters", async (req, res): Promise<void> 
     ))
     .groupBy(sql`coalesce(${lessonsTable.qflowChapterId}, ${lessonsTable.id})`);
   const countMap = new Map(questionCounts.map((row) => [row.chapterId, Number(row.count)]));
+  const linkedLessonRows = await db
+    .select({
+      chapterId: lessonsTable.qflowChapterId,
+      id: lessonsTable.id,
+      moduleId: lessonsTable.moduleId,
+      title: lessonsTable.title,
+      type: lessonsTable.type,
+      duration: lessonsTable.duration,
+      published: lessonsTable.published,
+    })
+    .from(lessonsTable)
+    .where(and(
+      inArray(lessonsTable.qflowChapterId, chapterIds),
+      ...(admin ? [] : [eq(lessonsTable.published, true)]),
+    ))
+    .orderBy(lessonsTable.sortOrder);
+  const linkedLessonsByChapter = new Map<string, typeof linkedLessonRows>();
+  for (const lesson of linkedLessonRows) {
+    if (!lesson.chapterId) continue;
+    const linked = linkedLessonsByChapter.get(lesson.chapterId) ?? [];
+    linked.push(lesson);
+    linkedLessonsByChapter.set(lesson.chapterId, linked);
+  }
   res.json(chapters.map((chapter) => ({
     ...chapter,
     questionCount: countMap.get(chapter.id) ?? 0,
+    linkedLessons: linkedLessonsByChapter.get(chapter.id) ?? [],
   })));
 });
 

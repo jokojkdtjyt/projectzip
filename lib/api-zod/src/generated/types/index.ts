@@ -20,6 +20,8 @@ export * from './lessonInputType';
 export * from './lessonType';
 export * from './lessonUpdate';
 export * from './lessonUpdateType';
+export * from './linkedLessonSummary';
+export * from './linkedLessonSummaryType';
 export * from './listModulesParams';
 export * from './module';
 export * from './moduleInput';

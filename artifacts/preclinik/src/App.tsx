@@ -42,6 +42,7 @@ import LessonPlayer from "@/pages/student/LessonPlayer";
 
 // Admin Pages
 import AdminOverview from "@/pages/admin/AdminOverview";
+import AdminQbank from "@/pages/admin/AdminQbank";
 import AdminModules from "@/pages/admin/AdminModules";
 import AdminLessons from "@/pages/admin/AdminLessons";
 import AdminStudents from "@/pages/admin/AdminStudents";
@@ -360,13 +361,11 @@ function AppRoutes() {
 
   return (
     <Switch>
-      {/* Home: public landing → signed-in users see Dashboard */}
+      {/* QFLOW is the primary home for signed-in learners. */}
       <Route path="/">
         <>
           <Show when="signed-in">
-            <StudentShell role={role} setRole={setRole}>
-              <Dashboard />
-            </StudentShell>
+            <QFlowPractice />
           </Show>
           <Show when="signed-out">
             <Landing />
@@ -378,8 +377,17 @@ function AppRoutes() {
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
 
-      {/* Public: QFLOW question-bank landing page */}
-      <Route path="/qflow" component={QFlow} />
+      {/* QFLOW is the primary signed-in experience; the public route stays an intro page. */}
+      <Route path="/qflow">
+        <>
+          <Show when="signed-in">
+            <QFlowPractice />
+          </Show>
+          <Show when="signed-out">
+            <QFlow />
+          </Show>
+        </>
+      </Route>
       <Route path="/qflow/setup" component={QFlowSetup} />
       <Route path="/qflow/practice" component={QFlowPractice} />
       <Route path="/qflow/practice/module/:moduleId" component={QFlowModuleSelection} />
@@ -400,6 +408,14 @@ function AppRoutes() {
       </Route>
 
       {/* Protected: personal student routes */}
+      <Route path="/dashboard">
+        <ProtectedRoute>
+          <StudentShell role={role} setRole={setRole}>
+            <Dashboard />
+          </StudentShell>
+        </ProtectedRoute>
+      </Route>
+
       <Route path="/my-learning">
         <ProtectedRoute>
           <StudentShell role={role} setRole={setRole}>
@@ -424,8 +440,22 @@ function AppRoutes() {
         </ProtectedRoute>
       </Route>
 
-      {/* Protected: admin-only panel — server-side AND client-side enforced */}
+      {/* Protected: Q-bank management is the admin landing page. */}
       <Route path="/admin">
+        <AdminRoute>
+          <AdminShell role={role} setRole={setRole}>
+            <AdminQbank />
+          </AdminShell>
+        </AdminRoute>
+      </Route>
+      <Route path="/admin/qbank">
+        <AdminRoute>
+          <AdminShell role={role} setRole={setRole}>
+            <AdminQbank />
+          </AdminShell>
+        </AdminRoute>
+      </Route>
+      <Route path="/admin/overview">
         <AdminRoute>
           <AdminShell role={role} setRole={setRole}>
             <AdminOverview />

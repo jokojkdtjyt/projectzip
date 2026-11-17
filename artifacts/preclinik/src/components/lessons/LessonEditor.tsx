@@ -414,14 +414,24 @@ interface LessonEditorProps {
   moduleId: string;
   lesson: Lesson | null;
   onClose: () => void;
+  initialTab?: 'video' | 'qbank';
+  initialLinkPickerOpen?: boolean;
+  initialLinkModuleId?: string;
 }
 
-export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
+export function LessonEditor({
+  moduleId,
+  lesson,
+  onClose,
+  initialTab = 'video',
+  initialLinkPickerOpen = false,
+  initialLinkModuleId = '',
+}: LessonEditorProps) {
   const queryClient = useQueryClient();
   const { getToken } = useAuth();
   const isEditing = !!lesson;
 
-  const [activeTab, setActiveTab] = useState<'video' | 'qbank'>('video');
+  const [activeTab, setActiveTab] = useState<'video' | 'qbank'>(initialTab);
   const [qbank, setQbank] = useState<LocalQuestion[]>([]);
   const [qbankLoading, setQbankLoading] = useState(!!lesson);
   const [qbankLoadError, setQbankLoadError] = useState(false);
@@ -429,8 +439,8 @@ export function LessonEditor({ moduleId, lesson, onClose }: LessonEditorProps) {
   const [saving, setSaving] = useState(false);
   const [importingPdf, setImportingPdf] = useState(false);
   const [ocrLanguage, setOcrLanguage] = useState<ParseQbankPdfBodyOcrLanguage>('eng+fra');
-  const [showQflowLinkPicker, setShowQflowLinkPicker] = useState(false);
-  const [linkModuleId, setLinkModuleId] = useState('');
+  const [showQflowLinkPicker, setShowQflowLinkPicker] = useState(initialLinkPickerOpen);
+  const [linkModuleId, setLinkModuleId] = useState(initialLinkModuleId);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // Video source toggle: 'bunny' | 'youtube'

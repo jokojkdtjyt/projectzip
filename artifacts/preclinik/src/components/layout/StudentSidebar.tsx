@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, Library, PlaySquare, FileQuestion, ChevronRight, ChevronLeft } from 'lucide-react';
+import { LayoutDashboard, Library, PlaySquare, FileQuestion, ChevronRight, ChevronLeft, CircleHelp } from 'lucide-react';
 
 export function StudentSidebar() {
   const [location] = useLocation();
@@ -12,7 +12,8 @@ export function StudentSidebar() {
   const isExpanded = !isLessonPage && expanded;
 
   const links = [
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/', label: 'QFLOW question bank', icon: CircleHelp },
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/catalog', label: 'Module catalog', icon: Library },
     { href: '/my-learning', label: 'My learning', icon: PlaySquare },
     { href: '/progress', label: 'Progress', icon: FileQuestion },

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { LessonType } from './lessonType';
+import type { LinkedLessonSummary } from './linkedLessonSummary';
 
 export interface Lesson {
   id: string;
@@ -40,4 +41,5 @@ export interface Lesson {
      */
   qflowChapterId?: string | null;
   questionCount?: number;
+  linkedLessons?: LinkedLessonSummary[];
 }

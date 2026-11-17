@@ -1,227 +1,171 @@
-import { useMemo } from "react";
-import { ArrowRight, BarChart3, BookOpen, Check, ChevronRight, Flame, LayoutDashboard, Library, ListChecks, LogOut, Menu, Play, Settings2, Target, UserRound } from "lucide-react";
-import { Link, useLocation } from "wouter";
-import { useListModules } from "@workspace/api-client-react";
-import { trackEvent } from "@/lib/googleAnalytics";
-import { readQFlowProfile } from "./QFlowSetup";
-
-const fallbackColors = [
-  "linear-gradient(135deg, #8b1a2f, #b9852e)",
-  "linear-gradient(135deg, #b9852e, #d6b96c)",
-  "linear-gradient(135deg, #536f64, #9aaf8c)",
-  "linear-gradient(135deg, #7b4d68, #c58c9d)",
-];
+import { useMemo, useState } from "react";
+import { BookOpen, ChevronRight, CircleHelp, Search, X } from "lucide-react";
+import { Link } from "wouter";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useQueries } from "@tanstack/react-query";
+import {
+  getListQflowChaptersQueryKey,
+  listQflowChapters,
+  useListModules,
+} from "@workspace/api-client-react";
 
 export default function QFlowPractice() {
-  const [, setLocation] = useLocation();
-  const profile = useMemo(() => readQFlowProfile(), []);
-  const { data: modules, isLoading } = useListModules({ published: true });
-  const visibleModules = modules?.slice(0, 6) ?? [];
+  const [search, setSearch] = useState("");
+  const { data: roleData } = useIsAdmin();
+  const { data: modules, isLoading, isError, refetch } = useListModules(
+    { published: true },
+  );
+  const publishedModules = useMemo(
+    () => (modules ?? []).filter((module) => module.published),
+    [modules],
+  );
+  const chapterQueries = useQueries({
+    queries: publishedModules.map((module) => ({
+      queryKey: getListQflowChaptersQueryKey(module.id),
+      queryFn: () => listQflowChapters(module.id),
+      enabled: Boolean(module.id),
+      retry: false,
+    })),
+  });
 
-  const displayName = profile?.university ? profile.university.replace("University of ", "") : "your medical school";
-  const currentUnit = profile?.unit ?? "your current unit";
-
-  const beginPractice = (label: string, moduleId?: string) => {
-    trackEvent("qflow_practice_started", { practice_type: label, unit: currentUnit });
-    if (moduleId) {
-      setLocation(`/qflow/practice/module/${moduleId}`);
-      return;
-    }
-    const firstModuleId = visibleModules[0]?.id;
-    setLocation(firstModuleId ? `/qflow/practice/module/${firstModuleId}` : `/qflow/practice?mode=${encodeURIComponent(label)}`);
-  };
+  const query = search.trim().toLocaleLowerCase();
+  const filteredModules = publishedModules.filter((module) =>
+    [module.title, module.category, module.summary]
+      .some((value) => value?.toLocaleLowerCase().includes(query)),
+  );
+  const loadingChapters = chapterQueries.some((item) => item.isLoading);
+  const chapterError = chapterQueries.some((item) => item.isError);
 
   return (
-    <div className="min-h-screen bg-[#f8f9fc] text-[#1a1211]">
-      <header className="sticky top-0 z-40 flex h-[72px] items-center justify-between border-b border-[#e8ddd5] bg-white/90 px-5 backdrop-blur-md sm:px-8">
-        <div className="flex items-center gap-4">
-          <Link href="/qflow" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-[#b9852e] font-serif text-xl font-bold text-white shadow-sm">P</div>
-            <div className="hidden sm:block">
-              <div className="font-serif text-lg font-bold leading-tight">PreClinik</div>
-              <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">QFLOW</div>
-            </div>
+    <div className="min-h-[100dvh] bg-[#f6f3ed] text-[#252522]">
+      <header className="border-b border-[#e5dfd4] bg-[#fbfaf7]">
+        <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between px-5 sm:px-8">
+          <Link href="/qflow" className="group flex items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b1a2f]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#8b1a2f] font-serif text-lg font-bold text-white">P</span>
+            <span>
+              <span className="block font-serif text-base font-bold leading-tight">PreClinik</span>
+              <span className="font-mono text-[9px] uppercase tracking-[.2em] text-[#8b1a2f]">QFLOW</span>
+            </span>
           </Link>
-          <div className="hidden h-7 w-px bg-border sm:block" />
-          <div className="hidden items-center gap-2 text-sm font-semibold text-muted-foreground sm:flex">
-            <span>Q-bank home</span>
-            <ChevronRight className="h-3.5 w-3.5" />
-            <span className="text-foreground">Practice</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link href="/qflow/setup" className="hidden items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 text-xs font-bold text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary sm:inline-flex">
-            <Settings2 className="h-3.5 w-3.5" />
-            Edit profile
+          <Link href="/qflow/setup" className="rounded-lg px-3 py-2 text-sm font-semibold text-[#766e64] hover:bg-[#f0ece4] hover:text-[#8b1a2f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b1a2f]">
+            Practice preferences
           </Link>
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-white shadow-sm">
-            <UserRound className="h-4 w-4" />
-          </div>
+          <nav aria-label="PreClinik navigation" className="hidden items-center gap-1 md:flex">
+            <Link href="/catalog" className="rounded-lg px-3 py-2 text-sm font-semibold text-[#766e64] hover:bg-[#f0ece4] hover:text-[#8b1a2f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b1a2f]">
+              Course catalog
+            </Link>
+            <Link href="/my-learning" className="rounded-lg px-3 py-2 text-sm font-semibold text-[#766e64] hover:bg-[#f0ece4] hover:text-[#8b1a2f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b1a2f]">
+              My learning
+            </Link>
+            {roleData?.isAdmin && (
+              <Link href="/admin" className="rounded-lg px-3 py-2 text-sm font-bold text-[#8b1a2f] hover:bg-[#f0ece4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b1a2f]">
+                Admin
+              </Link>
+            )}
+          </nav>
         </div>
       </header>
 
-      <div className="flex min-h-[calc(100vh-72px)]">
-        <aside className="hidden w-[230px] shrink-0 border-r border-[#e8ddd5] bg-white px-4 py-6 lg:block">
-          <div className="mb-7 px-3">
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Your QFLOW</p>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{displayName}</p>
+      <main className="mx-auto max-w-7xl px-5 pb-16 pt-9 sm:px-8 sm:pt-12">
+        <div className="grid gap-8 border-b border-[#ddd6ca] pb-9 md:grid-cols-[1fr_auto] md:items-end">
+          <div>
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[.22em] text-[#8b1a2f]">Question bank · Browse by module</p>
+            <h1 className="mt-3 max-w-3xl font-serif text-4xl font-semibold leading-[1.08] tracking-[-.03em] sm:text-5xl">Choose a module.<br className="hidden sm:block" /> Work through its chapters.</h1>
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-[#716b62] sm:text-base">
+              Find a subject, choose the chapters you want to revise, then start a focused question session.
+            </p>
           </div>
-          <nav className="space-y-1">
-            <PracticeNavItem icon={LayoutDashboard} label="Home" active />
-            <PracticeNavItem icon={ListChecks} label="Question bank" />
-            <PracticeNavItem icon={BarChart3} label="My progress" />
-            <PracticeNavItem icon={BookOpen} label="Saved questions" />
-          </nav>
-          <div className="mt-auto border-t border-border pt-5">
-            <Link href="/qflow" className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
-              <LogOut className="h-4 w-4" />
-              Exit QFLOW
-            </Link>
+          <div className="flex items-center gap-3 rounded-xl border border-[#e3ddd2] bg-[#fbfaf7] px-4 py-3 text-sm text-[#716b62]">
+            <BookOpen className="h-4 w-4 text-[#8b1a2f]" />
+            <span>Published QFLOW modules</span>
           </div>
-        </aside>
+        </div>
 
-        <main className="mx-auto w-full max-w-[1400px] flex-1 px-5 py-7 sm:px-8 lg:px-10">
-          <div className="mb-7 flex items-start justify-between gap-4">
+        <section aria-labelledby="module-list-title" className="pt-8">
+          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <div className="flex items-center gap-2 text-xs font-semibold text-primary">
-                <span className="h-2 w-2 rounded-full bg-[#3f7d5b]" />
-                QFLOW is ready
-              </div>
-              <h1 className="mt-3 font-serif text-3xl font-bold leading-tight sm:text-4xl">Welcome back to your practice.</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-                Keep your momentum going with a focused mix for <span className="font-semibold text-foreground">{currentUnit}</span>.
-              </p>
-            </div>
-            <button type="button" className="rounded-xl border border-border bg-white p-2.5 text-muted-foreground lg:hidden" aria-label="Open navigation">
-              <Menu className="h-5 w-5" />
-            </button>
-          </div>
-
-          <section className="relative overflow-hidden rounded-[24px] bg-primary p-6 text-white shadow-lg shadow-primary/15 sm:p-8">
-            <div className="absolute -right-12 -top-20 h-64 w-64 rounded-full border border-white/15" />
-            <div className="absolute -bottom-24 right-24 h-48 w-48 rounded-full bg-[#b9852e]/25 blur-2xl" />
-            <div className="relative flex flex-col justify-between gap-8 lg:flex-row lg:items-center">
-              <div className="max-w-2xl">
-                <div className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Daily mix · 10 questions</div>
-                <h2 className="mt-3 font-serif text-3xl font-bold sm:text-4xl">Start with a small win.</h2>
-                <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/75 sm:text-base">
-                  A balanced session built to keep your recall sharp without taking over your day.
-                </p>
-                <button type="button" onClick={() => beginPractice("Daily mix")} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-bold text-primary transition-all hover:-translate-y-0.5 hover:bg-[#fffaf4]">
-                  Start daily mix
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                <PracticeStat icon={Flame} value="0" label="day streak" />
-                <PracticeStat icon={Target} value="0%" label="accuracy" />
-                <PracticeStat icon={Check} value="0" label="answered" />
-              </div>
-            </div>
-          </section>
-
-          <section className="mt-8">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Choose your path</p>
-                <h2 className="mt-2 font-serif text-2xl font-bold">Continue your learning</h2>
-              </div>
-              <Link href="/catalog" className="hidden items-center gap-1 text-sm font-bold text-primary hover:underline sm:flex">
-                Browse modules <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
-
-            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {isLoading && [1, 2, 3].map((item) => <div key={item} className="h-64 animate-pulse rounded-[22px] border border-border bg-white" />)}
-              {!isLoading && visibleModules.map((module, index) => (
-                <PracticeModuleCard
-                  key={module.id}
-                  moduleId={module.id}
-                  title={module.title}
-                  meta={`${module.category} · ${module.lessonCount ?? 0} lessons`}
-                  summary={module.summary}
-                  gradient={module.gradient || fallbackColors[index % fallbackColors.length]}
-                  onStart={() => beginPractice(module.title, module.id)}
-                />
-              ))}
-              {!isLoading && visibleModules.length === 0 && (
-                <div className="col-span-full rounded-[22px] border border-dashed border-border bg-white p-10 text-center">
-                  <BookOpen className="mx-auto h-8 w-8 text-muted-foreground/50" />
-                  <h3 className="mt-3 font-serif text-xl font-bold">Your question paths are being prepared</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">Published modules will appear here as soon as they are available.</p>
-                </div>
+              <h2 id="module-list-title" className="font-serif text-2xl font-semibold">All modules</h2>
+              {!isLoading && !isError && (
+                <p className="mt-1 text-sm text-[#777168]">{filteredModules.length} {filteredModules.length === 1 ? "module" : "modules"}{query ? " found" : " available"}</p>
               )}
             </div>
-          </section>
-        </main>
-      </div>
+            <label className="relative block w-full sm:max-w-sm">
+              <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8c857b]" />
+              <input
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search title, category, summary"
+                aria-label="Search QFLOW modules"
+                data-testid="input-search-qflow-modules"
+                className="h-11 w-full rounded-xl border border-[#ded8cd] bg-[#fbfaf7] pl-10 pr-10 text-sm outline-none transition focus:border-[#8b1a2f] focus:ring-2 focus:ring-[#8b1a2f]/15"
+              />
+              {search && (
+                <button type="button" aria-label="Clear search" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-[#777168] hover:bg-[#eee9e0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b1a2f]">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </label>
+          </div>
+
+          {isLoading && (
+            <div aria-label="Loading modules" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {[0, 1, 2, 3, 4, 5].map((item) => <div key={item} className="h-56 animate-pulse rounded-2xl border border-[#e5dfd4] bg-[#fbfaf7]" />)}
+            </div>
+          )}
+          {isError && (
+            <div role="alert" className="rounded-2xl border border-[#e2c9c5] bg-[#fbf4f2] p-8 text-center">
+              <CircleHelp className="mx-auto h-7 w-7 text-[#8b1a2f]" />
+              <h3 className="mt-3 font-serif text-xl font-semibold">Modules did not load</h3>
+              <p className="mt-2 text-sm text-[#716b62]">Check your connection and try again.</p>
+              <button type="button" onClick={() => void refetch()} className="mt-5 rounded-lg bg-[#8b1a2f] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#741426] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#8b1a2f]">Retry</button>
+            </div>
+          )}
+          {!isLoading && !isError && filteredModules.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-[#d8d0c4] bg-[#fbfaf7] px-6 py-14 text-center">
+              <Search className="mx-auto h-7 w-7 text-[#8c857b]" />
+              <h3 className="mt-3 font-serif text-xl font-semibold">{query ? "No matching modules" : "No published modules yet"}</h3>
+              <p className="mt-2 text-sm text-[#777168]">{query ? "Try a different title, category, or keyword." : "Published QFLOW modules will appear here."}</p>
+            </div>
+          )}
+          {!isLoading && !isError && filteredModules.length > 0 && (
+            <>
+              {chapterError && <p role="status" className="mb-4 rounded-lg border border-[#e8d9bd] bg-[#faf5e9] px-4 py-3 text-sm text-[#715823]">Some chapter counts are temporarily unavailable.</p>}
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {filteredModules.map((module) => {
+                  const index = publishedModules.findIndex((candidate) => candidate.id === module.id);
+                  const chapters = chapterQueries[index]?.data;
+                  const questionCount = chapters?.reduce((sum, chapter) => sum + (chapter.questionCount ?? 0), 0);
+                  const chapterCount = chapters?.length;
+                  return (
+                    <article key={module.id} data-testid={`card-qflow-module-${module.id}`} className="group flex min-h-[230px] flex-col overflow-hidden rounded-2xl border border-[#e3ddd2] bg-[#fbfaf7] transition duration-200 hover:-translate-y-0.5 hover:border-[#c8b7a7] hover:shadow-[0_12px_30px_rgba(45,37,29,.08)]">
+                      <div className="h-1.5" style={{ background: module.gradient || "#8b1a2f" }} />
+                      <div className="flex flex-1 flex-col p-5 sm:p-6">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="font-mono text-[10px] font-bold uppercase tracking-[.16em] text-[#8b1a2f]">{module.category}</p>
+                            <h3 className="mt-2 font-serif text-xl font-semibold leading-snug">{module.title}</h3>
+                          </div>
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f2e8e5] text-[#8b1a2f]"><BookOpen className="h-4 w-4" /></span>
+                        </div>
+                        <p className="mt-3 line-clamp-2 min-h-10 text-sm leading-5 text-[#716b62]">{module.summary || "Browse the published chapters and practice questions in this module."}</p>
+                        <div className="mt-5 flex items-center gap-4 border-t border-[#e9e3d9] pt-4 font-mono text-[10px] uppercase tracking-wide text-[#777168]">
+                          <span>{chapterCount === undefined ? (loadingChapters ? "Loading chapters" : "Chapters unavailable") : `${chapterCount} ${chapterCount === 1 ? "chapter" : "chapters"}`}</span>
+                          <span className="h-1 w-1 rounded-full bg-[#b8aea1]" />
+                          <span>{questionCount === undefined ? "— questions" : `${questionCount} ${questionCount === 1 ? "question" : "questions"}`}</span>
+                        </div>
+                        <Link href={`/qflow/practice/module/${module.id}`} data-testid={`link-qflow-module-${module.id}`} className="mt-5 inline-flex min-h-10 items-center justify-between rounded-lg bg-[#8b1a2f] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#741426] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#8b1a2f]">
+                          Browse chapters <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                        </Link>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </section>
+      </main>
     </div>
-  );
-}
-
-function PracticeNavItem({ icon: Icon, label, active = false }: { icon: typeof BookOpen; label: string; active?: boolean }) {
-  return (
-    <button type="button" className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold transition-colors ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
-      <Icon className="h-4 w-4" />
-      {label}
-    </button>
-  );
-}
-
-function PracticeStat({ icon: Icon, value, label }: { icon: typeof Flame; value: string; label: string }) {
-  return (
-    <div className="min-w-[78px] rounded-2xl border border-white/15 bg-white/10 p-3 sm:min-w-[100px] sm:p-4">
-      <Icon className="h-4 w-4 text-[#d7b86a]" />
-      <div className="mt-4 font-serif text-2xl font-bold">{value}</div>
-      <div className="mt-1 font-mono text-[9px] uppercase tracking-wider text-white/60">{label}</div>
-    </div>
-  );
-}
-
-function PracticeModuleCard({
-  moduleId,
-  title,
-  meta,
-  summary,
-  gradient,
-  onStart,
-}: {
-  moduleId: string;
-  title: string;
-  meta: string;
-  summary?: string;
-  gradient: string;
-  onStart: () => void;
-}) {
-  const [, setLocation] = useLocation();
-
-  return (
-    <article
-      className="group cursor-pointer overflow-hidden rounded-[22px] border border-border bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg"
-      onClick={() => setLocation(`/qflow/practice/module/${moduleId}`)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") setLocation(`/qflow/practice/module/${moduleId}`);
-      }}
-      role="link"
-      tabIndex={0}
-    >
-      <div className="relative h-28 overflow-hidden p-5 text-white" style={{ background: gradient }}>
-        <div className="absolute -right-4 -top-8 h-28 w-28 rounded-full border border-white/20" />
-        <div className="relative flex h-full flex-col justify-between">
-          <BookOpen className="h-6 w-6 opacity-85" />
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-white/80">{meta}</p>
-        </div>
-      </div>
-      <div className="p-5">
-        <h3 className="font-serif text-lg font-bold leading-snug">{title}</h3>
-        <p className="mt-2 line-clamp-2 min-h-10 text-sm leading-relaxed text-muted-foreground">{summary || "Practice focused questions and build confidence one answer at a time."}</p>
-        <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Not started</span>
-          <button type="button" onClick={(event) => { event.stopPropagation(); onStart(); }} className="inline-flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-2 text-xs font-bold text-foreground transition-colors hover:bg-primary hover:text-white">
-            Practice <Play className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-    </article>
   );
 }

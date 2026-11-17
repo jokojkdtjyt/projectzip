@@ -1,12 +1,13 @@
 import React from 'react';
 import { Link, useLocation } from 'wouter';
-import { LayoutDashboard, Library, BookOpen, Users, Settings, Receipt } from 'lucide-react';
+import { LayoutDashboard, Library, BookOpen, Users, Settings, Receipt, CircleHelp } from 'lucide-react';
 
 export function AdminSidebar() {
   const [location] = useLocation();
 
   const links = [
-    { href: '/admin', label: 'Overview', icon: LayoutDashboard },
+    { href: '/admin/qbank', label: 'Q-bank', icon: CircleHelp },
+    { href: '/admin/overview', label: 'Overview', icon: LayoutDashboard },
     { href: '/admin/modules', label: 'Modules', icon: Library },
     { href: '/admin/lessons', label: 'Lessons', icon: BookOpen },
     { href: '/admin/students', label: 'Students', icon: Users },
@@ -21,7 +22,9 @@ export function AdminSidebar() {
       </div>
       <nav className="flex-1 py-4 flex flex-col gap-1 px-3 overflow-y-auto">
         {links.map((link) => {
-          const active = location === link.href || (link.href !== '/admin' && location.startsWith(link.href));
+          const active = location === link.href
+            || (link.href === '/admin/qbank' && location === '/admin')
+            || (link.href !== '/admin/overview' && link.href !== '/admin/qbank' && location.startsWith(link.href));
           const Icon = link.icon;
           return (
             <Link key={link.href} href={link.href} className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${active ? 'bg-sidebar-accent text-sidebar-accent-foreground font-bold' : 'text-muted-foreground hover:bg-secondary hover:text-foreground'}`}>
